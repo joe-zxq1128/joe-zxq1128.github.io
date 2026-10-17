@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AtCoder 比赛情况分析工具</title>
+<style>
+  :root {
+    --bg: #f4f6fa; --card: #fff; --border: #e6ebf2;
+    --text: #0f172a; --muted: #64748b; --faint: #94a3b8;
+    --primary: #2563eb; --radius: 16px;
+    --shadow-md: 0 2px 8px rgba(15,23,42,.06), 0 12px 28px -16px rgba(15,23,42,.2);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: linear-gradient(180deg, #f8fafc 0%, var(--bg) 300px);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  [hidden] { display: none !important; }
+
+  .brand {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 55%, #8b5cf6 100%);
+    color: #fff; position: relative; overflow: hidden;
+  }
+  .brand::before {
+    content: ''; position: absolute; top: -50%; right: -10%;
+    width: 480px; height: 480px;
+    background: radial-gradient(circle, rgba(255,255,255,.18) 0%, transparent 65%);
+    pointer-events: none;
+  }
+  .brand::after {
+    content: ''; position: absolute; bottom: -60%; left: -5%;
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(139,92,246,.35) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .brand-inner {
+    max-width: 1000px; margin: 0 auto; padding: 28px 24px 30px;
+    display: flex; align-items: center; gap: 18px;
+    position: relative; z-index: 1;
+  }
+  .brand-icon {
+    flex: none; width: 52px; height: 52px; border-radius: 14px;
+    background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.28);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 800; color: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,.15);
+  }
+  .brand-text h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: -.4px; }
+  .brand-text p { margin: 0; font-size: 13px; color: rgba(255,255,255,.78); line-height: 1.5; }
+  @media (max-width: 540px) {
+    .brand-inner { padding: 22px 18px 24px; gap: 14px; }
+    .brand-icon { width: 44px; height: 44px; font-size: 22px; border-radius: 12px; }
+    .brand-text h1 { font-size: 18px; }
+    .brand-text p { font-size: 12px; }
+  }
+
+  .wrap { max-width: 1000px; margin: -14px auto 0; padding: 0 16px 60px; position: relative; z-index: 1; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 22px 22px 24px;
+    margin-bottom: 18px; box-shadow: var(--shadow-md);
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .card-head h2 {
+    margin: 0; font-size: 15px; font-weight: 700; color: #1e293b;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-head h2::before {
+    content: ''; width: 4px; height: 16px; border-radius: 2px;
+    background: linear-gradient(180deg, #3b82f6, #8b5cf6); flex: none;
+  }
+  .card-head .hint { font-size: 12px; color: var(--faint); }
+
+  .help-box {
+    background: #f8fafc; border: 1px dashed #d9e1eb; border-radius: 12px;
+    padding: 12px 14px; font-size: 12px; color: #64748b;
+    margin-bottom: 12px; line-height: 1.7;
+  }
+  .help-box b { color: #334155; }
+  .help-box code {
+    background: #eef2f7; padding: 1px 6px; border-radius: 4px; font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #2563eb;
+  }
+
+  textarea {
+    width: 100%; height: 130px; resize: vertical;
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px;
+    font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #334155; background: #fbfdff; outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  textarea:focus {
+    border-color: #bfdbfe; box-shadow: 0 0 0 4px rgba(59,130,246,.1);
+    background: #fff;
+  }
+  textarea::placeholder { color: #b6c2d2; }
+
+  .preview-panel {
+    margin-top: 12px; padding: 11px 14px; border-radius: 10px;
+    font-size: 12px; line-height: 1.6;
+    display: flex; align-items: flex-start; gap: 8px;
+    background: #f8fafc; border: 1px solid #eef2f7; color: #64748b;
+    animation: pvSlide .2s ease;
+  }
+  @keyframes pvSlide {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .preview-panel .pv-icon { flex: none; font-weight: 700; font-size: 13px; line-height: 1.4; }
+  .preview-panel .pv-body { flex: 1; min-width: 0; }
+  .preview-panel b { font-weight: 700; }
+  .preview-panel.pv-ok { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+  .preview-panel.pv-warn { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+  .preview-panel.pv-err { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+
+  .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .btn {
+    appearance: none; border: 1px solid var(--border); background: #fff;
+    color: #334155; font-size: 13px; font-weight: 600;
+    padding: 9px 18px; border-radius: 10px; cursor: pointer;
+    transition: all .15s ease; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: #cbd5e1; background: #f8fafc; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    border-color: #2563eb; color: #fff;
+    box-shadow: 0 6px 16px -6px rgba(37,99,235,.6);
+  }
+  .btn.primary:hover { background: linear-gradient(135deg, #1d4ed8, #2563eb); border-color: #1d4ed8; }
+  .btn.ghost { background: transparent; border-color: transparent; color: #94a3b8; }
+  .btn.ghost:hover { color: #64748b; background: #f1f5f9; }
+
+  .status {
+    font-size: 12px; color: var(--faint); margin-left: auto;
+    min-height: 16px; display: inline-flex; align-items: center; gap: 6px;
+    max-width: 65%; text-align: right;
+  }
+  .status.ok { color: #16a34a; }
+  .status.err { color: #dc2626; }
+  .status::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; opacity: 0; transition: opacity .2s; flex: none;
+  }
+  .status.ok::before, .status.err::before { opacity: 1; }
+
+  .profile {
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: 20px;
+    padding-bottom: 18px; margin-bottom: 20px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .profile-main { display: flex; align-items: center; gap: 18px; min-width: 0; }
+  .avatar-box { flex: none; }
+  .avatar, .avatar-fallback {
+    width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+    border: 3px solid #fff; background: #f1f5f9; display: block;
+    box-shadow: 0 4px 14px rgba(15,23,42,.12);
+  }
+  .avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 700; color: #94a3b8;
+    background: linear-gradient(135deg, #e2e8f0, #f1f5f9);
+    user-select: none;
+  }
+  .profile h1 {
+    margin: 0 0 8px; font-size: 22px; font-weight: 700;
+    letter-spacing: -.3px; word-break: break-all;
+  }
+  .tags { display: flex; flex-wrap: wrap; gap: 7px; }
+  .tag {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    background: #eef2f7; color: #64748b; border: 1px solid #e6ebf2; font-weight: 500;
+  }
+  .stats { display: flex; flex-wrap: wrap; gap: 24px; }
+  .stat { display: flex; flex-direction: column; gap: 4px; }
+  .stat .k { font-size: 11px; color: var(--faint); letter-spacing: .3px; white-space: nowrap; font-weight: 500; }
+  .stat .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.1; }
+  .stat .v.pred { font-style: italic; }
+  @media (max-width: 640px) {
+    .profile-main { gap: 12px; }
+    .avatar, .avatar-fallback { width: 56px; height: 56px; font-size: 22px; }
+    .profile h1 { font-size: 18px; }
+    .stats { gap: 16px; }
+    .stat .v { font-size: 16px; }
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 6px 14px;
+    margin: 0 0 14px; padding: 10px 12px;
+    background: #fbfdff; border: 1px solid #f1f5f9; border-radius: 10px;
+  }
+  .lg-item {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: #64748b; font-variant-numeric: tabular-nums;
+  }
+  .lg-item i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+  .lg-item i.dashed {
+    background: transparent !important; border-radius: 2px; border: 0;
+    border-top: 2px dashed currentColor; width: 14px; height: 0;
+  }
+
+  .canvas-box {
+    position: relative; border-radius: 12px; overflow: hidden;
+    background: #fbfdff; border: 1px solid #f1f5f9;
+  }
+  canvas { display: block; width: 100%; height: 460px; }
+  @media (max-width: 640px) { canvas { height: 340px; } }
+
+  .tooltip {
+    position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0;
+    transition: opacity .12s ease; background: rgba(15,23,42,.95); color: #fff;
+    padding: 10px 13px; border-radius: 10px;
+    font-size: 12px; line-height: 1.45; white-space: nowrap;
+    box-shadow: 0 8px 28px rgba(15,23,42,.35); z-index: 5;
+  }
+  .tooltip .tt-name { font-weight: 600; margin-bottom: 3px; }
+  .tooltip .tt-date { color: #94a3b8; font-size: 11px; }
+  .tooltip .tt-meta { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+  .tooltip .tt-rating { font-size: 15px; font-weight: 700; }
+  .tooltip .tt-place { color: #cbd5e1; font-size: 11px; }
+  .tooltip .tt-badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 1px 6px; border-radius: 4px; margin-bottom: 5px;
+    background: rgba(139,92,246,.25); color: #c4b5fd;
+    border: 1px solid rgba(139,92,246,.45);
+  }
+
+  .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .analysis-grid { grid-template-columns: 1fr; } }
+  .an-block {
+    background: #fbfdff; border: 1px solid #eef2f7;
+    border-radius: 12px; padding: 16px 18px 18px;
+  }
+  .an-block.full { grid-column: 1 / -1; }
+  .an-block h3 {
+    margin: 0 0 14px; font-size: 11px; font-weight: 700;
+    color: #64748b; letter-spacing: .6px; text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .an-block h3::before {
+    content: ''; width: 3px; height: 12px; border-radius: 2px;
+    background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+  }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; }
+  .kpi {
+    background: #fff; border: 1px solid #eef2f7; border-radius: 10px;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 5px;
+    min-width: 0; transition: border-color .15s, box-shadow .15s, transform .15s;
+  }
+  .kpi:hover { border-color: #dbe4f0; box-shadow: 0 4px 14px -8px rgba(15,23,42,.15); transform: translateY(-1px); }
+  .kpi .k { font-size: 11px; color: var(--faint); white-space: nowrap; font-weight: 500; }
+  .kpi .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .kpi .sub { font-size: 11px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .dl { display: grid; gap: 10px; }
+  .dl-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; }
+  .dl-row .k { color: #64748b; }
+  .dl-row .v { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); text-align: right; }
+
+  .bw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 500px) { .bw-grid { grid-template-columns: 1fr; } }
+  .bw-card { padding: 14px 16px; border-radius: 12px; background: #fff; border: 1px solid #eef2f7; min-width: 0; }
+  .bw-card.up { border-color: #bbf7d0; background: linear-gradient(180deg, #f0fdf4, #fff); }
+  .bw-card.down { border-color: #fecaca; background: linear-gradient(180deg, #fef2f2, #fff); }
+  .bw-card .label { font-size: 11px; color: var(--faint); font-weight: 600; letter-spacing: .3px; }
+  .bw-card .delta { font-size: 26px; font-weight: 800; margin: 4px 0 8px; font-variant-numeric: tabular-nums; line-height: 1; }
+  .bw-card .name { font-size: 13px; color: #334155; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bw-card .date { font-size: 11px; color: var(--faint); margin-top: 3px; }
+
+  .band-stack {
+    display: flex; height: 28px; border-radius: 8px; overflow: hidden;
+    margin-bottom: 14px; border: 1px solid #f1f5f9; background: #f8fafc;
+    box-shadow: inset 0 1px 2px rgba(15,23,42,.03);
+  }
+  .band-stack .seg {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff; min-width: 0;
+  }
+  .band-list { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 11px; }
+  .band-list .item { display: inline-flex; align-items: center; gap: 5px; color: #64748b; font-variant-numeric: tabular-nums; }
+  .band-list .dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+
+  .year-chart { display: flex; gap: 10px; height: 130px; padding: 14px 4px 0; }
+  .year-col { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .year-bar-wrap { flex: 1; display: flex; align-items: flex-end; }
+  .year-bar { width: 100%; border-radius: 5px 5px 0 0; position: relative; min-height: 2px; transition: height .3s ease; }
+  .year-bar .num {
+    position: absolute; top: -17px; left: 0; right: 0; text-align: center;
+    font-size: 10px; font-weight: 600; color: #64748b; font-variant-numeric: tabular-nums;
+  }
+  .year-label { text-align: center; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+  footer { text-align: center; font-size: 12px; color: var(--faint); margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--border); }
+  footer a { color: var(--primary); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header class="brand">
+  <div class="brand-inner">
+    <div class="brand-icon">A</div>
+    <div class="brand-text">
+      <h1>AtCoder 比赛情况分析</h1>
+      <p>粘贴个人主页源代码，自动生成 Rating 曲线、未来一年预测与详细数据分析</p>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="card">
+    <div class="card-head">
+      <h2>粘贴个人主页源代码</h2>
+      <span class="hint">仅在本页处理，不会上传任何数据</span>
+    </div>
+    <div class="help-box">
+      <b>如何获取：</b>打开 <code>atcoder.jp/users/用户名</code> → 按 <code>Ctrl+U</code> 查看源代码 → <code>Ctrl+A</code> 全选 → <code>Ctrl+C</code> 复制。
+      <b>粘贴前请先点「清空」</b>，只粘贴一个用户的页面。下方预览会显示识别到的<b>页面主人</b>，与你登录的是哪个账号无关。
+    </div>
+    <textarea id="srcInput" spellcheck="false"
+      placeholder="在此粘贴 AtCoder 个人主页的 HTML 源代码……&#10;&#10;（粘贴后查看下方预览，确认无误再点击「解析并绘制」）"></textarea>
+    <div id="previewPanel" class="preview-panel" hidden></div>
+    <div class="actions">
+      <button id="parseBtn" class="btn primary"><span>▶</span> 解析并绘制</button>
+      <button id="clearBtn" class="btn ghost">清空</button>
+      <span id="status" class="status"></span>
+    </div>
+  </section>
+
+  <section class="card" id="resultCard" hidden>
+    <div class="profile">
+      <div class="profile-main">
+        <div class="avatar-box">
+          <img id="pAvatar" class="avatar" alt="" hidden>
+          <div id="pAvatarFallback" class="avatar-fallback" hidden>?</div>
+        </div>
+        <div>
+          <h1 id="pUser">—</h1>
+          <div class="tags" id="pTags"></div>
+        </div>
+      </div>
+      <div class="stats" id="pStats"></div>
+    </div>
+    <div class="card-head">
+      <h2>Rating 变化曲线 &amp; 未来一年预测</h2>
+      <span class="hint">悬停查看详情 · 预测含历史波动模拟</span>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="canvas-box">
+      <canvas id="chart"></canvas>
+      <div id="tooltip" class="tooltip"></div>
+    </div>
+  </section>
+
+  <section class="card" id="analysisCard" hidden>
+    <div class="card-head">
+      <h2>详细数据分析</h2>
+      <span class="hint" id="analysisHint"></span>
+    </div>
+    <div class="analysis-grid" id="analysisBody"></div>
+  </section>
+
+  <footer>
+    解析自 AtCoder 用户页源代码 · 仅本地处理 · 数据不会上传 ·
+    <a href="https://atcoder.jp" target="_blank" rel="noopener">AtCoder</a>
+  </footer>
+</main>
+
+<script>
+/* ============================================================
+   1. 段位区间（2800 以上全部红色）
+   ============================================================ */
+const BANDS = [
+  { min:    0, max:  400, color: '#808080', glow: '#cbd5e1', name: 'Gray'   },
+  { min:  400, max:  800, color: '#804000', glow: '#d9a066', name: 'Brown'  },
+  { min:  800, max: 1200, color: '#008000', glow: '#4ade80', name: 'Green'  },
+  { min: 1200, max: 1600, color: '#00c0c0', glow: '#22d3ee', name: 'Cyan'   },
+  { min: 1600, max: 2000, color: '#0000ff', glow: '#60a5fa', name: 'Blue'   },
+  { min: 2000, max: 2400, color: '#c0c000', glow: '#facc15', name: 'Yellow' },
+  { min: 2400, max: 2800, color: '#ff8000', glow: '#fb923c', name: 'Orange' },
+  { min: 2800, max: 1e9,  color: '#ff0000', glow: '#f87171', name: 'Red'    }
+];
+const bandOf = r => BANDS.find(b => r < b.max) || BANDS[BANDS.length - 1];
+
+function withAlpha(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+function hashString(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function fmtDate(ts) {
+  const d = new Date(ts * 1000);
+  return d.getUTCFullYear() + '/' +
+         String(d.getUTCMonth() + 1).padStart(2, '0') + '/' +
+         String(d.getUTCDate()).padStart(2, '0');
+}
+
+/* ============================================================
+   2. DOM 引用
+   ============================================================ */
+const srcInput     = document.getElementById('srcInput');
+const parseBtn     = document.getElementById('parseBtn');
+const clearBtn     = document.getElementById('clearBtn');
+const statusEl     = document.getElementById('status');
+const previewPanel = document.getElementById('previewPanel');
+const resultCard   = document.getElementById('resultCard');
+const pAvatar      = document.getElementById('pAvatar');
+const pAvatarFb    = document.getElementById('pAvatarFallback');
+const pUser        = document.getElementById('pUser');
+const pTags        = document.getElementById('pTags');
+const pStats       = document.getElementById('pStats');
+const legendEl     = document.getElementById('legend');
+const canvas       = document.getElementById('chart');
+const ctx          = canvas.getContext('2d');
+const tooltip      = document.getElementById('tooltip');
+const analysisCard = document.getElementById('analysisCard');
+const analysisBody = document.getElementById('analysisBody');
+const analysisHint = document.getElementById('analysisHint');
+
+/* ============================================================
+   3. 用户名识别（识别页面主人，不是登录用户）
+   ------------------------------------------------------------
+   关键区分：
+   - var userScreenName = "joe_zxq"   ← 当前登录用户（导航栏右上角），不能用作页面主人
+   - <a class="username" href="/users/xxx">xxx</a>  ← 页面主人
+   - <title>xxx - AtCoder</title>     ← 页面主人
+   - <meta property="og:title" content="xxx - AtCoder"> ← 页面主人
+   - <meta property="og:url" content=".../users/xxx">   ← 页面主人
+   ============================================================ */
+const USERNAME_RE = /^[A-Za-z0-9_.-]{1,50}$/;
+
+function cleanTitleCandidate(raw) {
+  if (!raw) return '';
+  return String(raw)
+    .replace(/\s*-\s*AtCoder.*$/i, '')
+    .replace(/\s*\|.*$/, '')
+    .trim();
+}
+
+function extractUsernameCandidates(doc) {
+  const list = [];
+
+  /* 1. .username 元素（页面正文中的用户名） */
+  doc.querySelectorAll('.username').forEach(el => {
+    const text = el.textContent.trim();
+    const href = el.getAttribute('href') || '';
+    const hm = href.match(/^\/users\/([^\/?#]+)/i);
+    // 元素文本必须和 href 里的用户名一致，避免误抓
+    if (hm && hm[1] === text && USERNAME_RE.test(text)) {
+      list.push({ source: '.username 元素', value: text });
+    } else if (USERNAME_RE.test(text)) {
+      // href 不是 /users/ 也接受（极少见），但记录
+      list.push({ source: '.username 元素', value: text });
+    }
+  });
+
+  /* 2. <title> 标签 */
+  const titleEl = doc.querySelector('title');
+  if (titleEl) {
+    const t = cleanTitleCandidate(titleEl.textContent);
+    if (USERNAME_RE.test(t)) list.push({ source: 'title 标签', value: t });
+  }
+
+  /* 3. og:title meta */
+  const ogTitle = doc.querySelector('meta[property="og:title"]');
+  if (ogTitle) {
+    const t = cleanTitleCandidate(ogTitle.getAttribute('content'));
+    if (USERNAME_RE.test(t)) list.push({ source: 'og:title meta', value: t });
+  }
+
+  /* 4. og:url meta —— 从 URL 路径提取 /users/xxx */
+  const ogUrl = doc.querySelector('meta[property="og:url"]');
+  if (ogUrl) {
+    const m = (ogUrl.getAttribute('content') || '').match(/\/users\/([^\/?#]+)/i);
+    if (m && USERNAME_RE.test(m[1])) {
+      list.push({ source: 'og:url meta', value: m[1] });
+    }
+  }
+
+  // 按 value 去重，保留第一次出现的来源
+  const seen = new Set();
+  return list.filter(c => {
+    if (seen.has(c.value)) return false;
+    seen.add(c.value);
+    return true;
+  });
+}
+
+/* ============================================================
+   4. rating_history 提取
+   ============================================================ */
+function extractRatingHistory(src) {
+  const re = /rating_history\s*=\s*(\[[\s\S]*?\])\s*;/g;
+  const results = [];
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    try {
+      const h = JSON.parse(m[1]);
+      if (Array.isArray(h) && h.length) results.push(h);
+    } catch (e) { /* ignore */ }
+  }
+  return results;
+}
+
+/* 从 StandingsUrl 提取用户名（作为最后后备） */
+function extractUsernameFromHistory(history) {
+  if (!Array.isArray(history) || !history.length) return '';
+  for (const h of history) {
+    const url = String(h.StandingsUrl || '');
+    const m = url.match(/[?&]watching=([^&#]+)/);
+    if (m && USERNAME_RE.test(m[1])) return m[1];
+  }
+  return '';
+}
+
+/* ============================================================
+   5. 主解析函数
+   ============================================================ */
+function parseAtCoderSource(src) {
+  if (!src || !src.trim()) throw new Error('请先粘贴 AtCoder 个人主页的 HTML 源代码');
+
+  const doc = new DOMParser().parseFromString(src, 'text/html');
+
+  /* --- 5.1 用户名（页面主人） --- */
+  const userCands = extractUsernameCandidates(doc);
+  const uniqueUsers = [...new Set(userCands.map(c => c.value))];
+
+  if (uniqueUsers.length === 0) {
+    throw new Error('无法识别页面主人用户名。\n请确认粘贴的是用户个人页（/users/xxx）的完整源代码。');
+  }
+  if (uniqueUsers.length > 1) {
+    throw new Error(
+      '检测到多个不同的用户名：' + uniqueUsers.join('、') +
+      '。\n请点「清空」后，只粘贴一个用户的页面。'
+    );
+  }
+
+  const user = uniqueUsers[0];
+  const userSource = userCands[0].source;
+
+  /* 若标题来源和正文来源一致，优先用 .username（最可靠） */
+  const preferred = userCands.find(c => c.source === '.username 元素') || userCands[0];
+
+  /* --- 5.2 rating_history --- */
+  const histories = extractRatingHistory(src);
+  if (histories.length === 0) {
+    throw new Error('未找到 rating_history 数据。\n请确认粘贴的是用户个人页（/users/xxx）的完整源代码。');
+  }
+  const history = histories[histories.length - 1];
+
+  const records = history
+    .map(h => ({
+      ts:     Number(h.EndTime),
+      rating: Number(h.NewRating),
+      name:   String(h.ContestName || 'Unknown Contest'),
+      place:  Number(h.Place) || 0,
+      url:    String(h.StandingsUrl || '')
+    }))
+    .filter(r => isFinite(r.ts) && isFinite(r.rating))
+    .sort((a, b) => a.ts - b.ts);
+
+  if (!records.length) throw new Error('rating_history 中没有可用的比赛记录。');
+
+  /* --- 5.3 头像 --- */
+  let avatar = '';
+  const av = doc.querySelector('img.avatar');
+  if (av) {
+    avatar = av.getAttribute('src') || '';
+    if (avatar.startsWith('//')) avatar = 'https:' + avatar;
+    else if (avatar.startsWith('/')) avatar = 'https://atcoder.jp' + avatar;
+  }
+
+  /* --- 5.4 表格元信息 --- */
+  function tdByTh(prefix) {
+    const ths = doc.querySelectorAll('th');
+    for (const th of ths) {
+      const text = th.textContent.replace(/\s+/g, ' ').trim();
+      if (text.indexOf(prefix) === 0) return th.nextElementSibling;
+    }
+    return null;
+  }
+  const textOf = el => el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+
+  const rankText         = textOf(tdByTh('Rank'));
+  const ratedMatchesText = textOf(tdByTh('Rated Matches'));
+  const lastCompeted     = textOf(tdByTh('Last Competed'));
+  const country          = textOf(tdByTh('Country/Region'));
+  const birthYear        = textOf(tdByTh('Birth Year'));
+  const affiliation      = textOf(tdByTh('Affiliation'));
+
+  let grade = '';
+  const highTd = tdByTh('Highest Rating') || tdByTh('Rating');
+  if (highTd) {
+    const m = highTd.textContent.match(/(\d+)\s*(Kyu|Dan)/i);
+    if (m) grade = m[1] + ' ' + m[2].replace(/^./, c => c.toUpperCase());
+  }
+
+  const currentRating = records[records.length - 1].rating;
+  const highestRating = Math.max(...records.map(r => r.rating));
+  const ratedMatches  = (ratedMatchesText.match(/\d+/) || [String(records.length)])[0];
+
+  return {
+    user, userSource: preferred.source, avatar, records,
+    meta: {
+      rank: rankText.replace(/\s*\(.*?\)\s*$/, '').trim(),
+      currentRating, highestRating, grade, ratedMatches,
+      lastCompeted, country, birthYear, affiliation
+    }
+  };
+}
+
+/* ============================================================
+   6. 实时预览
+   ============================================================ */
+let previewTimer = null;
+srcInput.addEventListener('input', () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(updatePreview, 450);
+});
+
+function updatePreview() {
+  const src = srcInput.value;
+  if (!src.trim()) { previewPanel.hidden = true; return; }
+  previewPanel.hidden = false;
+
+  try {
+    const doc = new DOMParser().parseFromString(src, 'text/html');
+    const cands = extractUsernameCandidates(doc);
+    const uniqueUsers = [...new Set(cands.map(c => c.value))];
+    const histories = extractRatingHistory(src);
+    const lastHist = histories.length ? histories[histories.length - 1] : null;
+    const matchCount = lastHist ? lastHist.length : 0;
+
+    if (uniqueUsers.length === 0) {
+      previewPanel.className = 'preview-panel pv-err';
+      previewPanel.innerHTML =
+        '<span class="pv-icon">✗</span>' +
+        '<span class="pv-body">未识别到页面主人用户名。<br>请确认粘贴的是 <b>用户个人页</b>（/users/xxx）的源代码。</span>';
+      return;
+    }
+    if (uniqueUsers.length > 1) {
+      previewPanel.className = 'preview-panel pv-err';
+      previewPanel.innerHTML =
+        '<span class="pv-icon">✗</span>' +
+        '<span class="pv-body">检测到 <b>' + uniqueUsers.length + ' 个不同的用户名</b>：' +
+        uniqueUsers.map(u => '<b>' + esc(u) + '</b>').join('、') +
+        '。<br>请点「清空」后，<b>只粘贴一个用户</b>的页面。</span>';
+      return;
+    }
+
+    const name = uniqueUsers[0];
+    const preferred = cands.find(c => c.source === '.username 元素') || cands[0];
+
+    if (!lastHist) {
+      previewPanel.className = 'preview-panel pv-warn';
+      previewPanel.innerHTML =
+        '<span class="pv-icon">⚠</span>' +
+        '<span class="pv-body">页面主人 <b>' + esc(name) + '</b>（来源：' +
+        esc(preferred.source) + '），但<b>未找到 rating_history</b>。</span>';
+      return;
+    }
+
+    previewPanel.className = 'preview-panel pv-ok';
+    previewPanel.innerHTML =
+      '<span class="pv-icon">✓</span>' +
+      '<span class="pv-body">页面主人 <b>' + esc(name) + '</b>' +
+      '（来源：' + esc(preferred.source) + '）· ' +
+      '包含 <b>' + matchCount + '</b> 场 rating_history</span>';
+  } catch (e) {
+    previewPanel.hidden = true;
+  }
+}
+
+/* ============================================================
+   7. 渲染个人信息
+   ============================================================ */
+function makeTag(text, color) {
+  const el = document.createElement('span');
+  el.className = 'tag';
+  el.textContent = text;
+  if (color) {
+    el.style.color = color;
+    el.style.background = withAlpha(color, 0.10);
+    el.style.borderColor = withAlpha(color, 0.38);
+  }
+  return el;
+}
+function addStat(parent, key, value, color, cls) {
+  const box = document.createElement('div');
+  box.className = 'stat';
+  const k = document.createElement('span');
+  k.className = 'k'; k.textContent = key;
+  const v = document.createElement('span');
+  v.className = 'v' + (cls ? ' ' + cls : '');
+  v.textContent = value;
+  if (color) v.style.color = color;
+  box.appendChild(k); box.appendChild(v);
+  parent.appendChild(box);
+}
+function showAvatarFallback(user) {
+  pAvatarFb.textContent = (user && user.trim()) ? user.trim()[0].toUpperCase() : '?';
+  pAvatarFb.hidden = false;
+}
+function showAvatar(user, url) {
+  pAvatar.hidden = true;
+  pAvatarFb.hidden = true;
+  pAvatar.onerror = null;
+  if (url) {
+    pAvatar.src = url;
+    pAvatar.hidden = false;
+    pAvatar.onerror = () => { pAvatar.hidden = true; showAvatarFallback(user); };
+  } else {
+    showAvatarFallback(user);
+  }
+}
+function renderResult(data, prediction) {
+  const { user, avatar, meta } = data;
+  pUser.textContent = user;
+  showAvatar(user, avatar);
+
+  const curBand = bandOf(meta.currentRating);
+  const bestBand = bandOf(meta.highestRating);
+
+  pTags.innerHTML = '';
+  pTags.appendChild(makeTag((meta.grade ? meta.grade + ' · ' : '') + meta.currentRating, curBand.color));
+  if (meta.country)     pTags.appendChild(makeTag(meta.country));
+  if (meta.affiliation) pTags.appendChild(makeTag(meta.affiliation));
+  if (meta.birthYear)   pTags.appendChild(makeTag('Birth ' + meta.birthYear));
+
+  pStats.innerHTML = '';
+  addStat(pStats, '当前 Rating', meta.currentRating, curBand.color);
+  addStat(pStats, '最高 Rating', meta.highestRating, bestBand.color);
+  addStat(pStats, 'Rated 场次', meta.ratedMatches);
+  if (meta.rank)         addStat(pStats, 'Rank', meta.rank);
+  if (meta.lastCompeted) addStat(pStats, '最近一场', meta.lastCompeted);
+
+  if (prediction && prediction.length) {
+    const finalR = prediction[prediction.length - 1].rating;
+    const diff = finalR - meta.currentRating;
+    addStat(pStats, '一年后预测',
+      finalR + ' (' + (diff >= 0 ? '+' : '') + diff + ')',
+      curBand.color, 'pred');
+  }
+}
+
+/* ============================================================
+   8. 预测模型（带波动，非直线）
+   ============================================================ */
+function predictFuture(records, username) {
+  const n = records.length;
+  if (n < 5) return [];
+
+  const lastR = records[n - 1].rating;
+  const lastTs = records[n - 1].ts;
+
+  const K = Math.min(40, n);
+  const recent = records.slice(-K);
+  const deltas = [];
+  for (let i = 1; i < K; i++) deltas.push(recent[i].rating - recent[i - 1].rating);
+
+  const rK = Math.min(15, deltas.length);
+  const recentDeltas = deltas.slice(-rK);
+  const meanDelta = recentDeltas.reduce((a, b) => a + b, 0) / rK;
+
+  const avgAll = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+  const variance = deltas.reduce((s, d) => s + (d - avgAll) ** 2, 0) / deltas.length;
+  const volatility = Math.max(8, Math.sqrt(variance));
+
+  const spanSec = recent[K - 1].ts - recent[0].ts;
+  const avgIntervalDays = Math.max(1, spanSec / (K - 1) / 86400);
+
+  let seed = hashString(username || 'default') + 12345;
+  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  const gauss = () => {
+    const u1 = Math.max(1e-9, rand()), u2 = rand();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  };
+
+  const weeks = 52;
+  const weekSec = 7 * 86400;
+  const matchesPerWeek = Math.max(0.3, 7 / avgIntervalDays);
+
+  let cur = lastR;
+  const preds = [];
+  for (let w = 1; w <= weeks; w++) {
+    const decayFactor = Math.exp(-w / 40);
+    const headroom = Math.max(0.2, 1 - cur / 4500);
+    const trendDelta = meanDelta * matchesPerWeek * decayFactor * headroom;
+    const weekVol = volatility * Math.sqrt(matchesPerWeek) * 0.8;
+    const noise = gauss() * weekVol;
+    cur = Math.max(50, cur + trendDelta + noise);
+    preds.push({ ts: lastTs + w * weekSec, rating: Math.round(cur), isPrediction: true });
+  }
+  return preds;
+}
+
+/* ============================================================
+   9. 详细数据分析
+   ============================================================ */
+function analyzeData(records) {
+  const n = records.length;
+  const ratings = records.map(r => r.rating);
+  const current = ratings[n - 1];
+  const peak = Math.max(...ratings);
+  const trough = Math.min(...ratings);
+  const avg = ratings.reduce((a, b) => a + b, 0) / n;
+
+  const deltas = [];
+  for (let i = 1; i < n; i++) {
+    deltas.push({
+      delta: records[i].rating - records[i - 1].rating,
+      from: records[i - 1].rating,
+      to: records[i].rating,
+      name: records[i].name,
+      ts: records[i].ts
+    });
+  }
+
+  let bestWin = null, worstLoss = null;
+  deltas.forEach(d => {
+    if (!bestWin || d.delta > bestWin.delta) bestWin = d;
+    if (!worstLoss || d.delta < worstLoss.delta) worstLoss = d;
+  });
+
+  const variance = ratings.reduce((s, r) => s + (r - avg) ** 2, 0) / n;
+  const stdDev = Math.sqrt(variance);
+  const avgAbsDelta = deltas.length
+    ? deltas.reduce((s, d) => s + Math.abs(d.delta), 0) / deltas.length : 0;
+
+  const recentGain = k => (n < k + 1 ? null : current - records[n - 1 - k].rating);
+
+  const spanDays = (records[n - 1].ts - records[0].ts) / 86400;
+  const avgInterval = n > 1 ? spanDays / (n - 1) : 0;
+  const perYear = spanDays > 0 ? n / (spanDays / 365.25) : 0;
+
+  const yearMap = new Map();
+  records.forEach(r => {
+    const y = new Date(r.ts * 1000).getUTCFullYear();
+    if (!yearMap.has(y)) yearMap.set(y, { year: y, count: 0, startRating: r.rating, endRating: r.rating });
+    const o = yearMap.get(y);
+    o.count++; o.endRating = r.rating;
+  });
+  const yearStats = Array.from(yearMap.values())
+    .sort((a, b) => a.year - b.year)
+    .map(y => ({ ...y, gain: y.endRating - y.startRating }));
+
+  const bandCounts = BANDS.map(b => ({ band: b, count: 0 }));
+  ratings.forEach(r => {
+    const b = bandOf(r);
+    const entry = bandCounts.find(e => e.band === b);
+    if (entry) entry.count++;
+  });
+
+  let maxUp = 0, maxDown = 0, curUp = 0, curDown = 0;
+  deltas.forEach(d => {
+    if (d.delta > 0) { curUp++; curDown = 0; maxUp = Math.max(maxUp, curUp); }
+    else if (d.delta < 0) { curDown++; curUp = 0; maxDown = Math.max(maxDown, curDown); }
+    else { curUp = 0; curDown = 0; }
+  });
+
+  const peakIdx = ratings.indexOf(peak);
+  const dropFromPeak = peak - current;
+  const peakTs = records[peakIdx].ts;
+
+  const currentBand = bandOf(current);
+  let streakInBand = 0;
+  for (let i = n - 1; i >= 0; i--) {
+    if (bandOf(ratings[i]) === currentBand) streakInBand++;
+    else break;
+  }
+
+  return {
+    n, current, peak, trough, avg, bestWin, worstLoss,
+    stdDev, avgAbsDelta,
+    recent5: recentGain(5), recent10: recentGain(10), recent30: recentGain(30),
+    spanDays, avgInterval, perYear,
+    yearStats, bandCounts, maxUp, maxDown,
+    dropFromPeak, peakTs, peakIdx, streakInBand, currentBand
+  };
+}
+
+function fmtSpan(days) {
+  if (days < 1) return '< 1 天';
+  const y = Math.floor(days / 365.25);
+  const m = Math.floor((days - y * 365.25) / 30.44);
+  const d = Math.floor(days - y * 365.25 - m * 30.44);
+  const parts = [];
+  if (y > 0) parts.push(y + ' 年');
+  if (m > 0) parts.push(m + ' 个月');
+  if (y === 0 && d > 0) parts.push(d + ' 天');
+  return parts.join(' ') || '0 天';
+}
+function deltaStr(v) {
+  if (v == null) return '—';
+  if (v === 0) return '0';
+  return (v > 0 ? '+' : '') + v;
+}
+function deltaColor(v) {
+  if (v == null) return null;
+  if (v > 0) return '#16a34a';
+  if (v < 0) return '#dc2626';
+  return '#64748b';
+}
+function kpiItem(k, v, color, sub) {
+  return '<div class="kpi"><span class="k">' + esc(k) + '</span>' +
+    '<span class="v"' + (color ? ' style="color:' + color + '"' : '') + '>' + esc(String(v)) + '</span>' +
+    (sub ? '<span class="sub" title="' + esc(sub) + '">' + esc(sub) + '</span>' : '') + '</div>';
+}
+function dlRow(k, v, color) {
+  return '<div class="dl-row"><span class="k">' + esc(k) + '</span>' +
+    '<span class="v"' + (color ? ' style="color:' + color + '"' : '') + '>' + esc(String(v)) + '</span></div>';
+}
+
+function renderKpis(s) {
+  const peakBand = bandOf(s.peak);
+  let html = '<div class="an-block full"><h3>关键指标</h3><div class="kpi-grid">';
+  html += kpiItem('总场次', s.n);
+  html += kpiItem('生涯增长', deltaStr(s.current), deltaColor(s.current), '从初始 0 起算');
+  html += kpiItem('峰值 Rating', s.peak, peakBand.color, '于 ' + fmtDate(s.peakTs));
+  html += kpiItem('平均 Rating', Math.round(s.avg));
+  if (s.bestWin) html += kpiItem('最大单场涨幅', '+' + s.bestWin.delta, '#16a34a', s.bestWin.name);
+  else html += kpiItem('最大单场涨幅', '—', null, '数据不足以计算');
+  html += kpiItem('平均场次间隔', s.n > 1 ? s.avgInterval.toFixed(1) + ' 天' : '—');
+  return html + '</div></div>';
+}
+function renderGrowth(s) {
+  let html = '<div class="an-block"><h3>增长趋势</h3><div class="dl">';
+  html += dlRow('平均每场', '+' + (s.current / Math.max(1, s.n)).toFixed(1));
+  html += dlRow('最近 5 场', deltaStr(s.recent5), deltaColor(s.recent5));
+  html += dlRow('最近 10 场', deltaStr(s.recent10), deltaColor(s.recent10));
+  html += dlRow('最近 30 场', deltaStr(s.recent30), deltaColor(s.recent30));
+  html += dlRow('年均场次', s.spanDays > 0 ? s.perYear.toFixed(1) + ' 场' : '—');
+  html += dlRow('时间跨度', fmtSpan(s.spanDays));
+  return html + '</div></div>';
+}
+function renderStability(s) {
+  let html = '<div class="an-block"><h3>稳定性</h3><div class="dl">';
+  html += dlRow('Rating 标准差', '±' + s.stdDev.toFixed(1));
+  html += dlRow('平均单场波动', '±' + s.avgAbsDelta.toFixed(1));
+  html += dlRow('最长连涨', s.maxUp + ' 场');
+  html += dlRow('最长连跌', s.maxDown + ' 场');
+  if (s.dropFromPeak > 0) html += dlRow('距峰值回落', '-' + s.dropFromPeak, '#dc2626');
+  else html += dlRow('距峰值回落', '0（当前即峰值）', '#16a34a');
+  html += dlRow('当前段位连续', s.streakInBand + ' 场（' + s.currentBand.name + '）');
+  return html + '</div></div>';
+}
+function renderBestWorst(s) {
+  let html = '<div class="an-block full"><h3>最佳 / 最差表现</h3><div class="bw-grid">';
+  if (s.bestWin) {
+    const d = s.bestWin;
+    html += '<div class="bw-card up"><div class="label">最佳单场</div>' +
+      '<div class="delta" style="color:#16a34a">+' + d.delta + '</div>' +
+      '<div class="name" title="' + esc(d.name) + '">' + esc(d.name) + '</div>' +
+      '<div class="date">' + fmtDate(d.ts) + ' · ' + d.from + ' → ' + d.to + '</div></div>';
+  } else {
+    html += '<div class="bw-card"><div class="label">最佳单场</div><div class="delta" style="color:#94a3b8">—</div></div>';
+  }
+  if (s.worstLoss && s.worstLoss.delta < 0) {
+    const d = s.worstLoss;
+    html += '<div class="bw-card down"><div class="label">最差单场</div>' +
+      '<div class="delta" style="color:#dc2626">' + d.delta + '</div>' +
+      '<div class="name" title="' + esc(d.name) + '">' + esc(d.name) + '</div>' +
+      '<div class="date">' + fmtDate(d.ts) + ' · ' + d.from + ' → ' + d.to + '</div></div>';
+  } else {
+    html += '<div class="bw-card"><div class="label">最差单场</div><div class="delta" style="color:#16a34a">无下降</div></div>';
+  }
+  return html + '</div></div>';
+}
+function renderBands(s) {
+  const total = s.bandCounts.reduce((sum, b) => sum + b.count, 0);
+  const filled = s.bandCounts.filter(b => b.count > 0);
+  const stack = filled.map(b => {
+    const pct = (b.count / total * 100);
+    const label = pct >= 12 ? b.count : '';
+    return '<div class="seg" style="background:' + b.band.color +
+      ';width:' + pct.toFixed(2) + '%" title="' +
+      esc(b.band.name) + ' · ' + b.count + ' 场">' + label + '</div>';
+  }).join('');
+  const list = filled.map(b => {
+    const pct = (b.count / total * 100).toFixed(1);
+    return '<span class="item">' +
+      '<span class="dot" style="background:' + b.band.color + '"></span>' +
+      esc(b.band.name) + ' · ' + b.count + ' 场（' + pct + '%）</span>';
+  }).join('');
+  return '<div class="an-block full"><h3>分段停留分布（每场比赛后所在的分数段）</h3>' +
+    '<div class="band-stack">' + stack + '</div>' +
+    '<div class="band-list">' + list + '</div></div>';
+}
+function renderYears(s) {
+  if (!s.yearStats.length) return '';
+  const firstYear = s.yearStats[0].year;
+  const lastYear = s.yearStats[s.yearStats.length - 1].year;
+  const maxCount = Math.max(...s.yearStats.map(y => y.count));
+  let cols = '';
+  for (let y = firstYear; y <= lastYear; y++) {
+    const data = s.yearStats.find(x => x.year === y) || { count: 0, gain: 0 };
+    const h = data.count > 0 ? Math.max(6, data.count / maxCount * 100) : 2;
+    let bg;
+    if (data.count === 0) bg = '#e2e8f0';
+    else if (data.gain > 0) bg = 'linear-gradient(180deg, #86efac, #16a34a)';
+    else if (data.gain < 0) bg = 'linear-gradient(180deg, #fca5a5, #dc2626)';
+    else bg = 'linear-gradient(180deg, #93c5fd, #3b82f6)';
+    cols += '<div class="year-col"><div class="year-bar-wrap">' +
+      '<div class="year-bar" style="height:' + h + '%;background:' + bg + '">' +
+      (data.count > 0 ? '<span class="num">' + data.count + '</span>' : '') +
+      '</div></div><span class="year-label">' + y + '</span></div>';
+  }
+  return '<div class="an-block full"><h3>年度活跃度（柱高 = 场次 · 绿 = 年度净增长 · 红 = 年度净下降）</h3>' +
+    '<div class="year-chart">' + cols + '</div></div>';
+}
+function renderAnalysis(stats) {
+  if (!stats || !stats.n) { analysisCard.hidden = true; return; }
+  analysisCard.hidden = false;
+  analysisHint.textContent = '基于已解析的 ' + stats.n + ' 场比赛';
+  analysisBody.innerHTML = [
+    renderKpis(stats), renderGrowth(stats), renderStability(stats),
+    renderBestWorst(stats), renderBands(stats), renderYears(stats)
+  ].join('');
+}
+
+/* ============================================================
+   10. 图表
+   ============================================================ */
+const PAD = { l: 54, r: 18, t: 24, b: 40 };
+let RECORDS = [], ACTUAL_PTS = [], PRED_PTS = [], ALL_PTS = [];
+let GEO = null, HOVER = -1;
+let T0 = 0, T1 = 0, Y_MIN = 0, Y_MAX = 2000;
+let PRED = [];
+
+function initChart(records, prediction) {
+  RECORDS = records;
+  HOVER = -1;
+  tooltip.style.opacity = '0';
+  PRED = prediction;
+
+  T0 = records[0].ts;
+  const tLast = records[records.length - 1].ts;
+  T1 = PRED.length ? PRED[PRED.length - 1].ts : tLast;
+
+  const allR = records.map(r => r.rating).concat(PRED.map(p => p.rating));
+  const maxR = Math.max(...allR);
+  const minR = Math.min(...allR);
+  Y_MIN = Math.max(0, Math.floor(minR / 400) * 400);
+  Y_MAX = Math.max(400, Math.ceil((maxR + 100) / 400) * 400);
+  layoutChart();
+}
+
+function layoutChart() {
+  if (!RECORDS.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(260, rect.width);
+  const H = rect.height || 460;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const plotW = W - PAD.l - PAD.r;
+  const plotH = H - PAD.t - PAD.b;
+  const span = Math.max(1, T1 - T0);
+  const xOf = t => PAD.l + (t - T0) / span * plotW;
+  const yOf = v => PAD.t + (1 - (v - Y_MIN) / (Y_MAX - Y_MIN)) * plotH;
+  GEO = { W, H, plotW, plotH, xOf, yOf, baseY: PAD.t + plotH };
+
+  ACTUAL_PTS = RECORDS.map(r => ({
+    ts: r.ts, rating: r.rating, name: r.name, place: r.place, url: r.url,
+    isPrediction: false, x: xOf(r.ts), y: yOf(r.rating)
+  }));
+  PRED_PTS = PRED.map(p => ({
+    ts: p.ts, rating: p.rating, isPrediction: true, x: xOf(p.ts), y: yOf(p.rating)
+  }));
+  ALL_PTS = ACTUAL_PTS.concat(PRED_PTS);
+  drawChart();
+}
+
+function drawChart() {
+  if (!GEO) return;
+  const { W, H, plotW, baseY, xOf, yOf } = GEO;
+  const { l: padL, t: padT } = PAD;
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = '11px -apple-system, "Segoe UI", "PingFang SC", sans-serif';
+
+  for (const b of BANDS) {
+    const lo = Math.max(Y_MIN, b.min);
+    const hi = Math.min(Y_MAX, b.max);
+    if (lo >= hi) continue;
+    ctx.fillStyle = withAlpha(b.color, 0.075);
+    ctx.fillRect(padL, yOf(hi), plotW, yOf(lo) - yOf(hi));
+  }
+
+  if (PRED_PTS.length && ACTUAL_PTS.length) {
+    const startX = ACTUAL_PTS[ACTUAL_PTS.length - 1].x;
+    const endX = PRED_PTS[PRED_PTS.length - 1].x;
+    const band = bandOf(ACTUAL_PTS[ACTUAL_PTS.length - 1].rating);
+    ctx.fillStyle = withAlpha(band.color, 0.045);
+    ctx.fillRect(startX, padT, endX - startX, GEO.plotH);
+  }
+
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let v = Y_MIN; v <= Y_MAX; v += 400) {
+    const y = Math.round(yOf(v)) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y);
+    ctx.strokeStyle = v === Y_MIN ? '#cbd5e1' : '#e8eef6';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(String(v), padL - 10, y);
+  }
+
+  const spanYears = (T1 - T0) / (365 * 86400);
+  ctx.textBaseline = 'top';
+  if (spanYears <= 2.5) {
+    const startD = new Date(T0 * 1000);
+    let y = startD.getUTCFullYear();
+    let mo = Math.floor(startD.getUTCMonth() / 3) * 3;
+    while (true) {
+      const ts = Date.UTC(y, mo, 1) / 1000;
+      if (ts > T1) break;
+      if (ts >= T0) {
+        const x = Math.round(xOf(ts)) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, padT); ctx.lineTo(x, baseY);
+        ctx.strokeStyle = 'rgba(148,163,184,.16)';
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText((mo + 1) + '月', x, baseY + 10);
+      }
+      mo += 3;
+      if (mo >= 12) { mo = 0; y += 1; }
+    }
+  } else {
+    const yStart = new Date(T0 * 1000).getUTCFullYear();
+    const yEnd = new Date(T1 * 1000).getUTCFullYear();
+    for (let y = yStart; y <= yEnd; y++) {
+      const ts = Date.UTC(y, 0, 1) / 1000;
+      if (ts < T0 || ts > T1) continue;
+      const x = Math.round(xOf(ts)) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, padT); ctx.lineTo(x, baseY);
+      ctx.strokeStyle = 'rgba(148,163,184,.16)';
+      ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(String(y), x, baseY + 10);
+    }
+  }
+
+  if (ACTUAL_PTS.length > 1) {
+    const areaGrad = ctx.createLinearGradient(0, padT, 0, baseY);
+    areaGrad.addColorStop(0, 'rgba(59,130,246,0.18)');
+    areaGrad.addColorStop(0.65, 'rgba(59,130,246,0.05)');
+    areaGrad.addColorStop(1, 'rgba(59,130,246,0.00)');
+    ctx.beginPath();
+    ctx.moveTo(ACTUAL_PTS[0].x, baseY);
+    for (const p of ACTUAL_PTS) ctx.lineTo(p.x, p.y);
+    ctx.lineTo(ACTUAL_PTS[ACTUAL_PTS.length - 1].x, baseY);
+    ctx.closePath();
+    ctx.fillStyle = areaGrad;
+    ctx.fill();
+  }
+
+  ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (let i = 1; i < ACTUAL_PTS.length; i++) {
+    const a = ACTUAL_PTS[i - 1], b = ACTUAL_PTS[i];
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = bandOf(a.rating).color;
+    ctx.stroke();
+  }
+
+  for (const p of ACTUAL_PTS) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 1.9, 0, Math.PI * 2);
+    ctx.fillStyle = bandOf(p.rating).color;
+    ctx.fill();
+  }
+
+  if (PRED_PTS.length && ACTUAL_PTS.length) {
+    const lastActual = ACTUAL_PTS[ACTUAL_PTS.length - 1];
+    const band = bandOf(lastActual.rating);
+    ctx.save();
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.moveTo(lastActual.x, lastActual.y);
+    for (const p of PRED_PTS) ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = band.color;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.restore();
+
+    const lastPred = PRED_PTS[PRED_PTS.length - 1];
+    ctx.beginPath();
+    ctx.arc(lastPred.x, lastPred.y, 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = withAlpha(band.color, 0.16);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(lastPred.x, lastPred.y, 2.8, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = band.color;
+    ctx.stroke();
+  }
+
+  const last = ACTUAL_PTS[ACTUAL_PTS.length - 1];
+  const lastBand = bandOf(last.rating);
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 8, 0, Math.PI * 2);
+  ctx.fillStyle = withAlpha(lastBand.color, 0.16);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = lastBand.color;
+  ctx.stroke();
+
+  if (HOVER >= 0 && ALL_PTS[HOVER]) {
+    const p = ALL_PTS[HOVER];
+    const band = bandOf(p.rating);
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(p.x, padT); ctx.lineTo(p.x, baseY);
+    ctx.strokeStyle = withAlpha(band.color, 0.45);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = withAlpha(band.color, 0.22);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3.8, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = band.color;
+    ctx.stroke();
+  }
+}
+
+function nearestIndex(mx) {
+  let lo = 0, hi = ALL_PTS.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (ALL_PTS[mid].x < mx) lo = mid; else hi = mid;
+  }
+  return Math.abs(ALL_PTS[lo].x - mx) <= Math.abs(ALL_PTS[hi].x - mx) ? lo : hi;
+}
+
+function positionTooltip(idx) {
+  const p = ALL_PTS[idx];
+  const band = bandOf(p.rating);
+  let html = '';
+  if (p.isPrediction) {
+    html += '<div class="tt-badge">预测</div>';
+    html += '<div class="tt-name">未来一年预测</div>';
+    html += '<div class="tt-date">' + fmtDate(p.ts) + ' · ' + band.name + '</div>';
+    html += '<div class="tt-meta"><span class="tt-rating" style="color:' + band.glow + '">' + p.rating + '</span></div>';
+  } else {
+    html += '<div class="tt-name">' + esc(p.name) + '</div>';
+    html += '<div class="tt-date">' + fmtDate(p.ts) + ' · ' + band.name +
+      ' (' + band.min + '–' + (band.max > 1e8 ? '∞' : band.max - 1) + ')</div>';
+    html += '<div class="tt-meta"><span class="tt-rating" style="color:' + band.glow + '">' + p.rating +
+      '</span><span class="tt-place">Rank #' + p.place + '</span></div>';
+  }
+  tooltip.innerHTML = html;
+  tooltip.style.opacity = '1';
+  const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+  let left = p.x + 14;
+  if (left + tw > GEO.W - 6) left = p.x - tw - 14;
+  left = Math.max(6, Math.min(left, GEO.W - tw - 6));
+  let top = p.y - th - 12;
+  if (top < 6) top = p.y + 14;
+  top = Math.max(6, Math.min(top, GEO.H - th - 6));
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
+}
+
+function hideTooltip() {
+  HOVER = -1;
+  tooltip.style.opacity = '0';
+  drawChart();
+}
+
+function onPointer(e) {
+  if (!ALL_PTS.length || !GEO) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  if (mx < PAD.l - 12 || mx > PAD.l + GEO.plotW + 12 ||
+      my < PAD.t - 24 || my > GEO.baseY + 24) {
+    if (HOVER !== -1) hideTooltip();
+    return;
+  }
+  const idx = nearestIndex(mx);
+  if (idx !== HOVER) { HOVER = idx; drawChart(); }
+  positionTooltip(idx);
+}
+
+canvas.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') onPointer(e); });
+canvas.addEventListener('pointerdown', onPointer);
+canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hideTooltip(); });
+canvas.addEventListener('click', () => {
+  if (window.matchMedia('(pointer: coarse)').matches) return;
+  if (HOVER < 0) return;
+  const p = ALL_PTS[HOVER];
+  if (!p || p.isPrediction || !p.url) return;
+  const href = /^https?:\/\//i.test(p.url) ? p.url : 'https://atcoder.jp' + p.url;
+  window.open(href, '_blank', 'noopener');
+});
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!resultCard.hidden && RECORDS.length) layoutChart();
+  }, 120);
+});
+
+/* ============================================================
+   11. 图例
+   ============================================================ */
+(function buildLegend() {
+  BANDS.forEach(b => {
+    const item = document.createElement('span');
+    item.className = 'lg-item';
+    const label = (b.max > 1e8) ? b.min + '+' : b.min + '–' + (b.max - 1);
+    item.innerHTML = '<i style="background:' + b.color + '"></i>' + label;
+    legendEl.appendChild(item);
+  });
+  const predItem = document.createElement('span');
+  predItem.className = 'lg-item';
+  predItem.style.color = '#8b5cf6';
+  predItem.innerHTML = '<i class="dashed" style="color:#8b5cf6"></i>未来一年预测（虚线）';
+  legendEl.appendChild(predItem);
+})();
+
+/* ============================================================
+   12. 主流程
+   ============================================================ */
+function setStatus(text, type) {
+  statusEl.textContent = text;
+  statusEl.className = 'status' + (type ? ' ' + type : '');
+}
+
+function handleParse() {
+  try {
+    setStatus('解析中…');
+    const data = parseAtCoderSource(srcInput.value);
+    const prediction = predictFuture(data.records, data.user);
+    const stats = analyzeData(data.records);
+
+    renderResult(data, prediction);
+    renderAnalysis(stats);
+    resultCard.hidden = false;
+
+    requestAnimationFrame(() => {
+      initChart(data.records, prediction);
+      resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    setStatus('✓ 已解析 @' + data.user + ' 的 ' + data.records.length + ' 场比赛', 'ok');
+  } catch (err) {
+    resultCard.hidden = true;
+    analysisCard.hidden = true;
+    setStatus('✗ ' + err.message.split('\n')[0], 'err');
+    if (err.message.includes('\n')) {
+      previewPanel.hidden = false;
+      previewPanel.className = 'preview-panel pv-err';
+      previewPanel.innerHTML =
+        '<span class="pv-icon">✗</span>' +
+        '<span class="pv-body">' + esc(err.message).replace(/\n/g, '<br>') + '</span>';
+    }
+  }
+}
+
+parseBtn.addEventListener('click', handleParse);
+srcInput.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    handleParse();
+  }
+});
+clearBtn.addEventListener('click', () => {
+  srcInput.value = '';
+  resultCard.hidden = true;
+  analysisCard.hidden = true;
+  previewPanel.hidden = true;
+  RECORDS = []; ACTUAL_PTS = []; PRED_PTS = []; ALL_PTS = [];
+  PRED = []; GEO = null; HOVER = -1;
+  tooltip.style.opacity = '0';
+  setStatus('');
+  srcInput.focus();
+});
+</script>
+</body>
+</html>

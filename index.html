@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>joe_zxq · 小站</title>
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --bg:#0a0e17;
+    --panel:#121a2a;
+    --panel-2:#0f1624;
+    --border:#1e2a40;
+    --text:#e7eefb;
+    --muted:#8a99b5;
+    --accent:#4f8cff;
+    --accent-2:#8b5cff;
+    --radius:14px;
+  }
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(900px 500px at 12% -10%, rgba(79,140,255,.18), transparent 60%),
+      radial-gradient(800px 500px at 90% 0%, rgba(139,92,255,.16), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    -webkit-font-smoothing:antialiased;
+  }
+  body.locked{overflow:hidden}
+
+  /* ---------- 头部 ---------- */
+  .site-head{
+    display:flex;flex-wrap:wrap;gap:18px;
+    align-items:center;justify-content:space-between;
+    padding:34px 24px 22px;
+    max-width:1100px;width:100%;margin:0 auto;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .avatar{
+    width:52px;height:52px;border-radius:16px;flex:none;
+    display:block;object-fit:cover;
+    background:var(--panel-2);
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 10px 26px -10px rgba(79,140,255,.9);
+  }
+  .brand h1{margin:0;font-size:22px;letter-spacing:.4px}
+  .brand .sub{margin:4px 0 0;font-size:13px;color:var(--muted)}
+  .search{
+    width:230px;max-width:100%;
+    padding:10px 14px;border-radius:11px;
+    border:1px solid var(--border);background:var(--panel-2);
+    color:var(--text);font-size:13px;font-family:inherit;outline:none;
+    transition:.18s;
+  }
+  .search:focus{border-color:rgba(79,140,255,.6);box-shadow:0 0 0 3px rgba(79,140,255,.12)}
+  .search::placeholder{color:#5c6a84}
+
+  /* ---------- 卡片网格 ---------- */
+  main{flex:1;width:100%;max-width:1100px;margin:0 auto;padding:0 24px 40px}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(228px,1fr));
+    gap:14px;
+  }
+  .card{
+    display:flex;flex-direction:column;align-items:flex-start;gap:9px;
+    padding:18px;border-radius:var(--radius);
+    background:linear-gradient(160deg,rgba(255,255,255,.045),rgba(255,255,255,.008)),var(--panel);
+    border:1px solid var(--border);
+    color:inherit;font:inherit;text-align:left;text-decoration:none;cursor:pointer;
+    transition:transform .18s ease, border-color .18s, box-shadow .18s;
+    animation:fadeIn .3s both;
+  }
+  .card:hover{
+    transform:translateY(-3px);
+    border-color:rgba(79,140,255,.5);
+    box-shadow:0 14px 34px -16px rgba(79,140,255,.75);
+  }
+  .card:active{transform:translateY(-1px)}
+  .card-name{
+    display:flex;align-items:center;gap:6px;
+    font-size:14.5px;font-weight:600;
+  }
+  .card .arrow{
+    font-weight:400;color:var(--muted);opacity:.5;
+    transition:transform .18s, opacity .18s, color .18s;
+  }
+  .card:hover .arrow{opacity:1;color:var(--accent);transform:translateX(3px)}
+
+  .empty{
+    padding:60px 0;text-align:center;color:var(--muted);font-size:14px;
+  }
+
+  /* ---------- 弹窗（预留给未来的本地工具） ---------- */
+  .modal{
+    position:fixed;inset:0;z-index:50;
+    display:none;align-items:center;justify-content:center;padding:18px;
+    background:rgba(4,7,13,.72);
+    backdrop-filter:blur(6px);
+  }
+  .modal.open{display:flex}
+  .modal-box{
+    width:100%;max-width:680px;max-height:86vh;
+    display:flex;flex-direction:column;
+    background:var(--panel);
+    border:1px solid var(--border);border-radius:18px;overflow:hidden;
+    box-shadow:0 30px 80px -24px rgba(0,0,0,.9);
+    animation:pop .24s ease;
+  }
+  .modal-head{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:15px 20px;border-bottom:1px solid var(--border);
+  }
+  .modal-head h2{margin:0;font-size:15px;font-weight:600}
+  .close{
+    width:30px;height:30px;border-radius:9px;flex:none;
+    border:1px solid var(--border);background:var(--panel-2);color:var(--muted);
+    font-size:17px;line-height:1;cursor:pointer;transition:.15s;
+  }
+  .close:hover{color:var(--text);border-color:#33456a}
+  .modal-body{
+    padding:20px;overflow:auto;
+    display:flex;flex-direction:column;gap:12px;
+  }
+
+  /* ---------- 页脚 ---------- */
+  footer{
+    padding:22px 24px 30px;text-align:center;
+    font-size:12px;color:#5c6a84;
+  }
+
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+
+  @media (max-width:600px){
+    .site-head{padding:24px 16px 18px}
+    main{padding:0 16px 30px}
+    .search{width:100%}
+    .modal-body{padding:16px}
+    .modal-box{max-height:90vh}
+  }
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <div class="brand">
+    <img class="avatar"
+         src="https://img.atcoder.jp/icons/f0acb42d8b2d81ddd53ae63cc80d4061.png"
+         alt="joe_zxq 头像">
+    <div>
+      <h1>joe_zxq</h1>
+      <p class="sub">我的小站 · 一些随手可用的小工具</p>
+    </div>
+  </div>
+  <input id="search" class="search" type="search" placeholder="搜索工具…" autocomplete="off">
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer>© <span id="year"></span> joe_zxq · 所有计算均在浏览器本地完成，不会上传任何数据</footer>
+
+<!-- 预留弹窗容器：以后要加「站内小工具」时直接复用 -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="modalTitle">工具</h2>
+      <button class="close" id="closeBtn" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   工具清单
+   - href：点击后直接跳转到该地址（站内页面 / 外部链接均可）
+   - render：不写 href 时，点击会打开弹窗并调用此函数渲染内容
+   ========================================================= */
+const TOOLS = [
+  {
+    id: 'atcoder-rating-analyzer',
+    name: 'AtCoder Rating 分析器',
+    desc: '',
+    href: '/atcoder-rating-analyzer'
+  }
+];
+
+/* =========================================================
+   基础逻辑
+   ========================================================= */
+const grid       = document.getElementById('grid');
+const modal      = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalBody  = document.getElementById('modalBody');
+const searchEl   = document.getElementById('search');
+
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* 渲染卡片网格 */
+function renderGrid(list){
+  grid.innerHTML = '';
+
+  if(!list.length){
+    grid.innerHTML = '<div class="empty">没有找到匹配的工具 🤔</div>';
+    return;
+  }
+
+  list.forEach(t => {
+    const isLink = Boolean(t.href);
+
+    const el = document.createElement(isLink ? 'a' : 'button');
+    el.className = 'card';
+
+    if(isLink){
+      el.href = t.href;
+    }else{
+      el.type = 'button';
+      el.addEventListener('click', () => openTool(t));
+    }
+
+    /* 仅保留工具名称，去掉图标和解释文字 */
+    el.innerHTML = `
+      <span class="card-name">
+        ${t.name}${isLink ? '<span class="arrow">→</span>' : ''}
+      </span>
+    `;
+
+    grid.appendChild(el);
+  });
+}
+
+/* 打开弹窗（供未来的站内工具使用） */
+function openTool(t){
+  modalTitle.textContent = t.name;
+  modalBody.innerHTML = '';
+  if(typeof t.render === 'function') t.render(modalBody);
+  modal.classList.add('open');
+  document.body.classList.add('locked');
+  setTimeout(() => {
+    const first = modalBody.querySelector('textarea, input:not([type=checkbox]), select');
+    if(first) first.focus();
+  }, 60);
+}
+
+function closeModal(){
+  modal.classList.remove('open');
+  document.body.classList.remove('locked');
+  modalBody.innerHTML = '';
+}
+
+document.getElementById('closeBtn').addEventListener('click', closeModal);
+modal.addEventListener('click', e => { if(e.target === modal) closeModal(); });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && modal.classList.contains('open')) closeModal();
+});
+
+/* 搜索过滤（desc 已空，按名称和 id 过滤） */
+searchEl.addEventListener('input', () => {
+  const q = searchEl.value.trim().toLowerCase();
+  renderGrid(TOOLS.filter(t =>
+    (t.name + t.desc + t.id).toLowerCase().includes(q)
+  ));
+});
+
+renderGrid(TOOLS);
+</script>
+</body>
+</html>
