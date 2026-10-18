@@ -724,7 +724,6 @@ function loadUsersStore() {
       Object.keys(obj).forEach(k => {
         const u = obj[k];
         if (!u || !u.user || !Array.isArray(u.records)) return;
-        // 恢复 currentBand 的段位引用（普通对象也能用，仅为了保持一致性）
         if (u.stats && u.stats.currentBand) {
           const b = BANDS.find(x => x.name === u.stats.currentBand.name);
           if (b) u.stats.currentBand = b;
@@ -1518,32 +1517,42 @@ function drawChart() {
     ctx.fill();
   }
 
+  /* ============================================================
+     预测曲线：逐段绘制，每段使用终点 Rating 对应的段位色
+     ============================================================ */
   if (PRED_PTS.length && ACTUAL_PTS.length) {
     const lastActual = ACTUAL_PTS[ACTUAL_PTS.length - 1];
-    const band = bandOf(lastActual.rating);
+
     ctx.save();
     ctx.setLineDash([6, 5]);
-    ctx.beginPath();
-    ctx.moveTo(lastActual.x, lastActual.y);
-    for (const p of PRED_PTS) ctx.lineTo(p.x, p.y);
-    ctx.strokeStyle = band.color;
-    ctx.globalAlpha = 0.85;
     ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
-    ctx.stroke();
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.85;
+    let prev = lastActual;
+    for (const p of PRED_PTS) {
+      ctx.beginPath();
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = bandOf(p.rating).color;
+      ctx.stroke();
+      prev = p;
+    }
     ctx.restore();
 
+    // 末端圆点用最后一个预测点的段位色
     const lastPred = PRED_PTS[PRED_PTS.length - 1];
+    const lastBand = bandOf(lastPred.rating);
     ctx.beginPath();
     ctx.arc(lastPred.x, lastPred.y, 5.5, 0, Math.PI * 2);
-    ctx.fillStyle = withAlpha(band.color, 0.16);
+    ctx.fillStyle = withAlpha(lastBand.color, 0.16);
     ctx.fill();
     ctx.beginPath();
     ctx.arc(lastPred.x, lastPred.y, 2.8, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.lineWidth = 1.8;
-    ctx.strokeStyle = band.color;
+    ctx.strokeStyle = lastBand.color;
     ctx.stroke();
   }
 
@@ -1840,7 +1849,6 @@ function selectUser(key) {
   resultCard.hidden = false;
   analysisCard.hidden = false;
 
-  // 标记选中行
   userTableBody.querySelectorAll('tr').forEach(tr => {
     tr.classList.toggle('active', tr.dataset.key === key);
   });
@@ -1851,7 +1859,6 @@ function selectUser(key) {
     if (currentView === 'parse') {
       initChart(u.records, u.prediction);
     } else {
-      // 不在解析视图时，图表留到切回时再画
       RECORDS = u.records;
       PRED = u.prediction;
     }
@@ -1889,7 +1896,6 @@ function handleParse() {
     const prediction = predictFuture(data.records, data.user);
     const stats = analyzeData(data.records);
 
-    // 覆盖或新增
     storeUser(data, prediction, stats);
 
     renderUserList();
