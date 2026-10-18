@@ -696,7 +696,51 @@ function fmtDate(ts) {
 }
 
 /* ============================================================
-   2. DOM 引用
+   2. 持久化
+   ============================================================ */
+const USERS_STORE_KEY = 'atcoder-analyzer-users-v1';
+const CURRENT_USER_STORAGE_KEY = 'atcoder-analyzer-current-v1';
+
+function saveUsersStore() {
+  try {
+    const obj = {};
+    usersStore.forEach((v, k) => { obj[k] = v; });
+    localStorage.setItem(USERS_STORE_KEY, JSON.stringify(obj));
+    if (currentUserKey) {
+      localStorage.setItem(CURRENT_USER_STORAGE_KEY, currentUserKey);
+    } else {
+      localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+    }
+  } catch (e) {
+    console.warn('保存缓存失败：', e);
+  }
+}
+
+function loadUsersStore() {
+  try {
+    const raw = localStorage.getItem(USERS_STORE_KEY);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      Object.keys(obj).forEach(k => {
+        const u = obj[k];
+        if (!u || !u.user || !Array.isArray(u.records)) return;
+        // 恢复 currentBand 的段位引用（普通对象也能用，仅为了保持一致性）
+        if (u.stats && u.stats.currentBand) {
+          const b = BANDS.find(x => x.name === u.stats.currentBand.name);
+          if (b) u.stats.currentBand = b;
+        }
+        usersStore.set(k, u);
+      });
+    }
+    const cur = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    if (cur && usersStore.has(cur)) currentUserKey = cur;
+  } catch (e) {
+    console.warn('读取缓存失败：', e);
+  }
+}
+
+/* ============================================================
+   3. DOM 引用
    ============================================================ */
 const srcInput     = document.getElementById('srcInput');
 const parseBtn     = document.getElementById('parseBtn');
@@ -724,7 +768,7 @@ const emptyListHint = document.getElementById('emptyListHint');
 const sidebar       = document.getElementById('sidebar');
 
 /* ============================================================
-   3. 用户名识别
+   4. 用户名识别
    ============================================================ */
 const USERNAME_RE = /^[A-Za-z0-9_.-]{1,50}$/;
 
@@ -779,7 +823,7 @@ function extractUsernameCandidates(doc) {
 }
 
 /* ============================================================
-   4. rating_history 提取
+   5. rating_history 提取
    ============================================================ */
 function extractRatingHistory(src) {
   const re = /rating_history\s*=\s*(\[[\s\S]*?\])\s*;/g;
@@ -795,7 +839,7 @@ function extractRatingHistory(src) {
 }
 
 /* ============================================================
-   5. 主解析函数
+   6. 主解析函数
    ============================================================ */
 function parseAtCoderSource(src) {
   if (!src || !src.trim()) throw new Error('请先粘贴 AtCoder 个人主页的 HTML 源代码');
@@ -816,8 +860,6 @@ function parseAtCoderSource(src) {
   }
 
   const user = uniqueUsers[0];
-  const userSource = userCands[0].source;
-
   const preferred = userCands.find(c => c.source === '.username 元素') || userCands[0];
 
   const histories = extractRatingHistory(src);
@@ -886,7 +928,7 @@ function parseAtCoderSource(src) {
 }
 
 /* ============================================================
-   6. 实时预览
+   7. 实时预览
    ============================================================ */
 let previewTimer = null;
 srcInput.addEventListener('input', () => {
@@ -948,7 +990,7 @@ function updatePreview() {
 }
 
 /* ============================================================
-   7. 用户数据存储
+   8. 用户数据存储
    ============================================================ */
 const usersStore = new Map();
 let currentUserKey = null;
@@ -967,10 +1009,11 @@ function storeUser(data, prediction, stats) {
     stats: stats
   });
   currentUserKey = key;
+  saveUsersStore();
 }
 
 /* ============================================================
-   8. 个人信息渲染
+   9. 个人信息渲染
    ============================================================ */
 function makeTag(text, color) {
   const el = document.createElement('span');
@@ -1042,7 +1085,7 @@ function renderResult(data, prediction) {
 }
 
 /* ============================================================
-   9. 预测模型
+   10. 预测模型
    ============================================================ */
 function predictFuture(records, username) {
   const n = records.length;
@@ -1093,7 +1136,7 @@ function predictFuture(records, username) {
 }
 
 /* ============================================================
-   10. 详细数据分析
+   11. 详细数据分析
    ============================================================ */
 function analyzeData(records) {
   const n = records.length;
@@ -1317,7 +1360,7 @@ function renderAnalysis(stats) {
 }
 
 /* ============================================================
-   11. 图表
+   12. 图表
    ============================================================ */
 const PAD = { l: 54, r: 18, t: 24, b: 40 };
 let RECORDS = [], ACTUAL_PTS = [], PRED_PTS = [], ALL_PTS = [];
@@ -1623,7 +1666,7 @@ window.addEventListener('resize', () => {
 });
 
 /* ============================================================
-   12. 图例
+   13. 图例
    ============================================================ */
 (function buildLegend() {
   BANDS.forEach(b => {
@@ -1641,7 +1684,7 @@ window.addEventListener('resize', () => {
 })();
 
 /* ============================================================
-   13. 视图切换
+   14. 视图切换
    ============================================================ */
 function setView(v) {
   currentView = v;
@@ -1668,7 +1711,7 @@ sidebar.addEventListener('click', e => {
 });
 
 /* ============================================================
-   14. 用户列表渲染与排序
+   15. 用户列表渲染与排序
    ============================================================ */
 function getLatestContestDate(userData) {
   const recs = userData.records;
@@ -1761,12 +1804,23 @@ userTableBody.addEventListener('click', e => {
 
 function deleteUser(key) {
   if (!usersStore.has(key)) return;
+  const wasCurrent = currentUserKey === key;
   usersStore.delete(key);
-  if (currentUserKey === key) {
+
+  if (wasCurrent) {
     currentUserKey = null;
     hideDetail();
   }
+
   renderUserList();
+  saveUsersStore();
+
+  if (wasCurrent) {
+    const sorted = getSortedUsers();
+    if (sorted.length) {
+      selectUser(getUserKey(sorted[0].user));
+    }
+  }
 }
 
 function hideDetail() {
@@ -1790,6 +1844,8 @@ function selectUser(key) {
   userTableBody.querySelectorAll('tr').forEach(tr => {
     tr.classList.toggle('active', tr.dataset.key === key);
   });
+
+  saveUsersStore();
 
   requestAnimationFrame(() => {
     if (currentView === 'parse') {
@@ -1815,10 +1871,11 @@ clearAllBtn.addEventListener('click', () => {
   currentUserKey = null;
   hideDetail();
   renderUserList();
+  saveUsersStore();
 });
 
 /* ============================================================
-   15. 主流程
+   16. 主流程
    ============================================================ */
 function setStatus(text, type) {
   statusEl.textContent = text;
@@ -1865,8 +1922,21 @@ clearBtn.addEventListener('click', () => {
   srcInput.focus();
 });
 
-/* 初始化 */
+/* ============================================================
+   17. 初始化
+   ============================================================ */
+loadUsersStore();
 renderUserList();
+
+if (currentUserKey && usersStore.has(currentUserKey)) {
+  selectUser(currentUserKey);
+} else if (usersStore.size) {
+  const sorted = getSortedUsers();
+  if (sorted.length) {
+    selectUser(getUserKey(sorted[0].user));
+  }
+}
+
 setView('parse');
 </script>
 </body>
