@@ -154,7 +154,6 @@
 
   .word-row {
     display: grid;
-    /* 复选框 | 单词名 | 音标 | 释义 */
     grid-template-columns: 15px 140px 150px 1fr;
     column-gap: 9px;
     align-items: start;
@@ -208,6 +207,12 @@
     cursor: default;
   }
   .word-row .word-ex:empty { display: none; }
+  /* 例句中的目标单词加粗高亮 */
+  .word-row .word-ex b {
+    font-weight: 700;
+    color: #2185d0;
+    font-style: normal;
+  }
 
   .word-row.mastered .word-w {
     text-decoration: line-through; text-decoration-thickness: 1.5px; color: #aaa;
@@ -215,6 +220,7 @@
   .word-row.mastered .word-p,
   .word-row.mastered .word-d,
   .word-row.mastered .word-ex { color: #bbb; }
+  .word-row.mastered .word-ex b { color: #bbb; }
 
   .word-row .miss-text { color: #c77; font-size: 12px; font-style: italic; }
 
@@ -263,6 +269,7 @@
   .quiz-feedback .answer { color: var(--text); font-weight: 700; }
   .quiz-feedback .phon { font-family: ui-monospace, monospace; font-weight: 400; color: var(--muted); margin-left: 6px; font-size: 13px; }
   .quiz-feedback .example { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 4px; font-style: italic; }
+  .quiz-feedback .example b { font-weight: 700; color: var(--primary); font-style: normal; }
 
   .quiz-actions { display: flex; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-light); }
   .quiz-actions .btn { flex: 1; }
@@ -296,7 +303,6 @@
     .progress-wrap { width: 50px; }
     .panel-body { padding: 10px 12px 14px; }
 
-    /* 移动端 4 列收窄 */
     .word-row { grid-template-columns: 15px 85px 100px 1fr; column-gap: 6px; padding: 8px 4px; }
     .word-row .word-w { font-size: 13px; }
     .word-row .word-p { font-size: 11.5px; }
@@ -346,7 +352,7 @@
               <span>例句</span>
               <span class="switch"><input type="checkbox" id="toggleExample" checked><span class="slider"></span></span>
             </label>
-            <a class="btn-tiny" id="updateWordlist" href="https://github.com/joe-zxq1128/joe-zxq1128.github.io/edit/main/wordlist/wordlist.txt" target="_blank" rel="noopener" title="前往 GitHub 编辑 wordlist.txt">
+            <a class="btn-tiny" href="https://github.com/joe-zxq1128/joe-zxq1128.github.io/edit/main/wordlist/wordlist.txt" target="_blank" rel="noopener" title="前往 GitHub 编辑 wordlist.txt">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
               更新生词表
             </a>
@@ -378,7 +384,7 @@
           <p class="quiz-note" id="quizNote"></p>
           <button id="quizStart" class="btn btn-primary btn-block">开始复盘</button>
           <p class="quiz-note" style="margin-top:14px">
-            释义：ECDICT 2 万词条扩展词库（本地）。音标：dictionaryapi.dev。例句：Wiktionary REST API，例句覆盖率明显高于 dictionaryapi.dev。音标和例句分别缓存，可单独开关。
+            释义：ECDICT 2万词条（本地）。音标：dictionaryapi.dev。例句：优先 Wiktionary，失败时回退有道词典，HTML 标签已清洗，目标单词自动加粗。
           </p>
         </div>
       </div>
@@ -418,9 +424,9 @@
   /* =========================================================
      配置
      ========================================================= */
-  const MASTER_KEY          = 'words-tool-mastered-v12';
-  const PHONETIC_CACHE_KEY  = 'words-tool-phonetic-v4';
-  const EXAMPLE_CACHE_KEY   = 'words-tool-example-v4';
+  const MASTER_KEY          = 'words-tool-mastered-v13';
+  const PHONETIC_CACHE_KEY  = 'words-tool-phonetic-v5';
+  const EXAMPLE_CACHE_KEY   = 'words-tool-example-v5';
   const SHOW_DEF_KEY        = 'words-tool-show-def-v3';
   const AUTO_PHONETIC_KEY   = 'words-tool-auto-phonetic-v3';
   const AUTO_EXAMPLE_KEY    = 'words-tool-auto-example-v1';
@@ -429,6 +435,7 @@
   const ECDICT_URL = 'https://raw.githubusercontent.com/FluentRead/FluentRead/refs/heads/main/assets/optional/ecdict-core-full.json';
   const PHONETIC_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
   const WIKTIONARY_API = 'https://en.wiktionary.org/api/rest_v1/page/definition/';
+  const YOUDAO_API = 'https://dict.youdao.com/jsonapi?q=';
   const FETCH_TIMEOUT = 8000;
 
   /* =========================================================
@@ -604,7 +611,7 @@
   }
 
   /* =========================================================
-     例句：Wiktionary REST API
+     例句：Wiktionary 优先 → 有道回退
      ========================================================= */
   const exampleQueue = [];
   const examplePending = new Set();
@@ -627,7 +634,7 @@
       const job = exampleQueue.shift();
       examplePending.add(job.key);
       exampleRunning++;
-      fetchExamples(job.word)
+      fetchExamplesWithFallback(job.word)
         .then(examples => {
           exampleCache[job.key] = examples || [];
           saveCache(EXAMPLE_CACHE_KEY, exampleCache);
@@ -645,15 +652,30 @@
     }
   }
 
-  async function fetchExamples(word) {
+  /* 优先 Wiktionary，失败或空时回退有道 */
+  async function fetchExamplesWithFallback(word) {
+    let examples = [];
+    try {
+      examples = await fetchWiktionaryExamples(word);
+    } catch (e) { /* 忽略，走回退 */ }
+    if (examples.length) return examples;
+
+    try {
+      examples = await fetchYoudaoExamples(word);
+    } catch (e) { /* 忽略 */ }
+    return examples;
+  }
+
+  /* ---------- Wiktionary ---------- */
+  async function fetchWiktionaryExamples(word) {
     const url = WIKTIONARY_API + encodeURIComponent(word);
     const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    return parseWiktionaryExamples(data);
+    return parseWiktionaryExamples(data, word);
   }
 
-  function parseWiktionaryExamples(data) {
+  function parseWiktionaryExamples(data, targetWord) {
     const out = [];
     const en = data && data.en;
     if (!Array.isArray(en)) return out;
@@ -661,24 +683,27 @@
     for (const entry of en) {
       if (!Array.isArray(entry.definitions)) continue;
       for (const def of entry.definitions) {
-        // 优先纯文本 examples
-        if (Array.isArray(def.examples)) {
-          for (const ex of def.examples) {
-            if (typeof ex === 'string') {
-              const t = ex.trim();
-              if (t.length > 10 && t.length < 240 && out.length < 2 && !out.includes(t)) {
-                out.push(t);
+        // 优先使用 parsedExamples（结构化 HTML，稍后清洗）
+        if (Array.isArray(def.parsedExamples)) {
+          for (const pe of def.parsedExamples) {
+            if (pe && pe.example) {
+              const raw = String(pe.example);
+              if (out.length < 2) {
+                const clean = cleanExampleHtml(raw, targetWord);
+                if (clean && clean.length > 10 && clean.length < 240 && !out.includes(clean)) {
+                  out.push(clean);
+                }
               }
             }
           }
         }
-        // 回退到 parsedExamples（去 HTML 标签）
-        if (out.length < 2 && Array.isArray(def.parsedExamples)) {
-          for (const pe of def.parsedExamples) {
-            if (pe && pe.example) {
-              const t = String(pe.example).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-              if (t.length > 10 && t.length < 240 && out.length < 2 && !out.includes(t)) {
-                out.push(t);
+        // 回退到纯文本 examples
+        if (out.length < 2 && Array.isArray(def.examples)) {
+          for (const ex of def.examples) {
+            if (typeof ex === 'string') {
+              const clean = highlightTargetWord(escapeHtml(ex.trim()), targetWord);
+              if (clean.length > 10 && clean.length < 240 && out.length < 2 && !out.includes(clean)) {
+                out.push(clean);
               }
             }
           }
@@ -690,6 +715,100 @@
     return out;
   }
 
+  /* 清洗 Wiktionary 的 HTML：去标签、解码实体、转义、再加粗目标词 */
+  function cleanExampleHtml(html, targetWord) {
+    let s = String(html);
+
+    // 1. 解码常见 HTML 实体
+    s = s.replace(/&amp;/g, '&')
+         .replace(/&lt;/g, '<')
+         .replace(/&gt;/g, '>')
+         .replace(/&quot;/g, '"')
+         .replace(/&#39;/g, "'")
+         .replace(/&nbsp;/g, ' ');
+
+    // 2. 去掉所有 HTML 标签，保留文本内容
+    s = s.replace(/<[^>]+>/g, ' ');
+
+    // 3. 压缩空白
+    s = s.replace(/\s+/g, ' ').trim();
+
+    // 4. 转义 HTML 特殊字符（因为我们即将把结果作为 HTML 插入 innerHTML）
+    s = escapeHtml(s);
+
+    // 5. 给目标单词加粗
+    s = highlightTargetWord(s, targetWord);
+
+    return s;
+  }
+
+  /* 在已经转义的文本中，给目标单词加上 <b> 标签（不破坏已有转义） */
+  function highlightTargetWord(escapedText, targetWord) {
+    if (!targetWord) return escapedText;
+    // 按单词边界匹配，不区分大小写；保留原始大小写
+    const re = new RegExp('\\b(' + escapeRegExp(targetWord) + ')\\b', 'gi');
+    return escapedText.replace(re, '<b>$1</b>');
+  }
+
+  function escapeRegExp(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /* 转义 HTML 特殊字符，用于最终 innerHTML 插入 */
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ESC_MAP[c]);
+  }
+
+  /* ---------- 有道词典（回退） ---------- */
+  async function fetchYoudaoExamples(word) {
+    const url = YOUDAO_API + encodeURIComponent(word);
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    return parseYoudaoExamples(data, word);
+  }
+
+  function parseYoudaoExamples(data, targetWord) {
+    const out = [];
+    if (!data) return out;
+
+    // 优先双语例句 blng_sents_part
+    const blng = data.blng_sents_part && data.blng_sents_part['sentence-pair'];
+    if (Array.isArray(blng)) {
+      for (const item of blng) {
+        if (out.length >= 2) break;
+        const en = item.sentence || item['sentence-eng'] || '';
+        if (en) {
+          const escaped = escapeHtml(String(en).trim());
+          const highlighted = highlightTargetWord(escaped, targetWord);
+          if (highlighted.length > 10 && highlighted.length < 300) {
+            out.push(highlighted);
+          }
+        }
+      }
+    }
+
+    // 回退权威例句 auth_sents_part
+    if (out.length < 2) {
+      const auth = data.auth_sents_part && data.auth_sents_part.sent;
+      if (Array.isArray(auth)) {
+        for (const item of auth) {
+          if (out.length >= 2) break;
+          const en = item.eng || '';
+          if (en) {
+            const escaped = escapeHtml(String(en).trim());
+            const highlighted = highlightTargetWord(escaped, targetWord);
+            if (highlighted.length > 10 && highlighted.length < 300) {
+              out.push(highlighted);
+            }
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  /* 更新例句 DOM */
   function updateExampleDom(key) {
     const exs = exampleCache[key];
     if (!Array.isArray(exs) || !exs.length) return;
@@ -697,7 +816,7 @@
     try { nodes = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"] .word-ex'); }
     catch (e) { nodes = []; }
     nodes.forEach(el => {
-      el.innerHTML = exs.map(ex => '“' + esc(ex) + '”').join('<br>');
+      el.innerHTML = exs.map(ex => '“' + ex + '”').join('<br>');
     });
   }
 
@@ -783,8 +902,9 @@
         defHtml = '<span class="miss-text">（未收录）</span>';
       }
 
+      // 例句已经过清洗和高亮，直接作为 HTML 插入
       const exHtml = exs.length
-        ? exs.map(ex => '“' + esc(ex) + '”').join('<br>')
+        ? exs.map(ex => '“' + ex + '”').join('<br>')
         : '';
 
       html +=
@@ -941,7 +1061,7 @@
     const exs = Array.isArray(exampleCache[q.key]) ? exampleCache[q.key] : [];
     return prefixHtml +
       (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '') +
-      (exs.length ? '<span class="example">“' + esc(exs[0]) + '”</span>' : '');
+      (exs.length ? '<span class="example">“' + exs[0] + '”</span>' : '');
   }
 
   function submitAnswer() {
@@ -1027,7 +1147,7 @@
           const exs = Array.isArray(exampleCache[w.key]) ? exampleCache[w.key] : [];
           return '<li><b>' + esc(w.word) + '</b>' +
             (ph ? '<span class="rp">/' + esc(ph) + '/</span>' : '') +
-            '<span>' + esc(dictData.translation || '') + (exs.length ? ' · “' + esc(exs[0]) + '”' : '') + '</span></li>';
+            '<span>' + esc(dictData.translation || '') + (exs.length ? ' · “' + exs[0] + '”' : '') + '</span></li>';
         }).join('') +
         '</ul></div>';
       if (unmarked) html += '<p class="quiz-note">已将 ' + unmarked + ' 个答错的单词标记为「未掌握」。</p>';
@@ -1203,7 +1323,6 @@
     setView(btn.dataset.view);
   });
 
-  // 只有勾选框本身的 change 事件才更新掌握状态
   const listEl = document.getElementById('list');
   listEl.addEventListener('change', e => {
     const box = e.target;
