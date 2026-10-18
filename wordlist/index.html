@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>背单词</title>
+<style>
+  * { box-sizing: border-box; }
+
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1b1d21;
+    --muted: #6b7280;
+    --accent: #4f46e5;
+    --border: #e6e8ec;
+    --ok: #10b981;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1014;
+      --card: #171a20;
+      --text: #e7e9ee;
+      --muted: #9aa3b2;
+      --accent: #818cf8;
+      --border: #252a33;
+      --ok: #34d399;
+    }
+  }
+
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- 顶部栏 ---------- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-inner {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 12px 16px 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  h1 {
+    font-size: 17px;
+    margin: 0;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .search { flex: 1; min-width: 180px; }
+  .search input {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .search input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  .count {
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .progress {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 0 16px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .bar {
+    flex: 1;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+  }
+  .bar > i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: var(--ok);
+    transition: width .3s ease;
+  }
+  .btn {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    transition: .15s;
+  }
+  .btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---------- 列表 ---------- */
+  .wrap {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 0 16px 80px;
+  }
+  .letter {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 18px 4px 8px;
+  }
+  .word {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color .15s, transform .15s, opacity .2s;
+  }
+  .word:hover {
+    border-color: var(--accent);
+    transform: translateX(2px);
+  }
+  .word .w {
+    font-weight: 600;
+    font-size: 15px;
+    word-break: break-word;
+    flex-shrink: 0;
+  }
+  .word .d {
+    color: var(--muted);
+    font-size: 13px;
+    word-break: break-word;
+  }
+  .word .check {
+    margin-left: auto;
+    color: var(--ok);
+    font-weight: 700;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .word.mastered { opacity: .5; }
+  .word.mastered .w { text-decoration: line-through; }
+  .word.mastered .check { opacity: 1; }
+
+  .empty, .notice {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.8;
+    padding: 24px 4px;
+  }
+  .notice code {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .notice input[type=file] { margin-top: 10px; color: var(--text); }
+
+  @media (max-width: 480px) {
+    .word { flex-wrap: wrap; gap: 2px 10px; }
+    .word .w { font-size: 14px; }
+    .word .d { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1>📖 背单词</h1>
+    <div class="search">
+      <input id="search" type="search" placeholder="搜索单词或释义…（按 / 聚焦）" autocomplete="off">
+    </div>
+    <span class="count" id="count">0</span>
+  </div>
+  <div class="progress">
+    <span id="ptext">已掌握 0 / 0</span>
+    <div class="bar"><i id="barfill"></i></div>
+    <button class="btn" id="reset" title="清除所有已掌握标记">重置</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="list"></div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  const MASTER_KEY = 'words-tool-mastered-v2';
+  const SOURCES = ['wordlist.txt', 'words.txt'];   // 依次尝试
+
+  const state = {
+    words: [],      // [{ word, def, key }]  已按字典序升序
+    query: '',
+    mastered: loadMastered()
+  };
+
+  /* ---------------- 工具函数 ---------------- */
+
+  const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  const esc = s => String(s).replace(/[&<>"']/g, c => ESC_MAP[c]);
+
+  function loadMastered() {
+    try {
+      const raw = localStorage.getItem(MASTER_KEY);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveMastered() {
+    try {
+      localStorage.setItem(MASTER_KEY, JSON.stringify([...state.mastered]));
+    } catch (e) { /* 隐私模式下忽略 */ }
+  }
+
+  /* ---------------- 解析 wordlist.txt ----------------
+     格式：每行  英文单词(可含空格短语) 空格 中文释义
+     例：confront v. 面对（困难、死亡、恐惧等）
+         look after 照顾
+         apple n. 苹果；苹果树
+
+     解析规则：
+       1. 找到行内第一个汉字的位置；
+       2. 汉字之前的部分，剥掉尾部的词性缩写（v. / n. / adj. …）；
+       3. 剩余为英文单词，词性 + 中文为释义；
+       4. 若整行没有汉字，则按第一个空白切分。
+     空行、# 或 // 开头的行忽略。
+  ------------------------------------------------ */
+  const POS_WORDS = 'v|vt|vi|n|adj|adv|prep|conj|pron|num|art|int|aux|abbr|phr|pl|sing';
+  const POS_TAIL_RE = new RegExp(
+    '\\s*((?:(?:' + POS_WORDS + ')\\.\\s*)+)$', 'i'
+  );
+
+  function splitLine(line) {
+    const cnIndex = line.search(/[\u3400-\u9fff\uf900-\ufaff]/);
+
+    if (cnIndex === -1) {
+      // 无中文：第一个空白前为单词
+      const m = line.match(/^(\S+)(?:\s+(.*))?$/);
+      if (!m) return null;
+      return { word: m[1], def: (m[2] || '').trim() };
+    }
+
+    const head = line.slice(0, cnIndex);
+    const tail = line.slice(cnIndex);
+
+    const posMatch = head.match(POS_TAIL_RE);
+    if (posMatch) {
+      return {
+        word: head.slice(0, posMatch.index).trim(),
+        def: (posMatch[1].trim() + ' ' + tail.trim()).trim()
+      };
+    }
+    return { word: head.trim(), def: tail.trim() };
+  }
+
+  function parseWords(text) {
+    const out = [];
+    const seen = new Set();
+
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.replace(/^\uFEFF/, '').trim();
+      if (!line || line.startsWith('#') || line.startsWith('//')) continue;
+
+      const parsed = splitLine(line);
+      if (!parsed || !parsed.word) continue;
+
+      const key = parsed.word.toLowerCase();
+      if (seen.has(key)) continue;   // 去重（不区分大小写）
+      seen.add(key);
+      out.push({ word: parsed.word, def: parsed.def, key });
+    }
+
+    // ★ 按字典序升序排列
+    out.sort((a, b) =>
+      a.key.localeCompare(b.key, 'en', { sensitivity: 'base', numeric: true }) ||
+      a.word.localeCompare(b.word, 'en')
+    );
+
+    return out;
+  }
+
+  /* ---------------- 渲染 ---------------- */
+
+  function render() {
+    const listEl = document.getElementById('list');
+    const q = state.query.trim().toLowerCase();
+
+    const items = q
+      ? state.words.filter(w => w.key.includes(q) || w.def.toLowerCase().includes(q))
+      : state.words;
+
+    document.getElementById('count').textContent = `${items.length} / ${state.words.length}`;
+
+    if (!items.length) {
+      listEl.innerHTML = `<p class="empty">${state.words.length ? '没有匹配的单词 🤔' : '文件中没有解析到单词。'}</p>`;
+      updateProgress();
+      return;
+    }
+
+    let html = '';
+    let curLetter = null;
+
+    for (const w of items) {
+      const first = w.word.charAt(0);
+      const letter = /[a-z]/i.test(first) ? first.toUpperCase() : '#';
+      if (letter !== curLetter) {
+        curLetter = letter;
+        html += `<div class="letter">${esc(letter)}</div>`;
+      }
+      const mastered = state.mastered.has(w.key);
+      html +=
+        `<div class="word${mastered ? ' mastered' : ''}" data-key="${esc(w.key)}" title="点击标记 / 取消「已掌握」">` +
+          `<span class="w">${esc(w.word)}</span>` +
+          (w.def ? `<span class="d">${esc(w.def)}</span>` : '') +
+          `<span class="check">✓</span>` +
+        `</div>`;
+    }
+
+    listEl.innerHTML = html;
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const total = state.words.length;
+    let done = 0;
+    for (const w of state.words) if (state.mastered.has(w.key)) done++;
+
+    document.getElementById('barfill').style.width = total ? (done / total * 100) + '%' : '0%';
+    document.getElementById('ptext').textContent = `已掌握 ${done} / ${total}`;
+  }
+
+  function setWords(text) {
+    state.words = parseWords(text);
+    render();
+  }
+
+  /* ---------------- 加载 wordlist.txt ---------------- */
+
+  async function init() {
+    const errors = [];
+    for (const name of SOURCES) {
+      try {
+        const res = await fetch(name, { cache: 'no-store' });
+        if (!res.ok) throw new Error(name + '：HTTP ' + res.status);
+        const text = await res.text();
+        setWords(text);
+        return;
+      } catch (err) {
+        errors.push(err && err.message ? err.message : String(err));
+      }
+    }
+    showFallback(errors.join('；'));
+  }
+
+  function showFallback(errMsg) {
+    document.getElementById('list').innerHTML = `
+      <div class="notice">
+        <p><strong>无法自动读取 wordlist.txt</strong>（${esc(errMsg)}）</p>
+        <p>常见原因：直接双击打开了 HTML 文件，浏览器出于安全限制禁止读取本地文件。</p>
+        <p>解决办法：在该目录下打开终端执行
+          <code>python -m http.server 8000</code>，
+          然后访问 <code>http://localhost:8000/index.html</code>。</p>
+        <p>或者直接手动选择文件：</p>
+        <input type="file" id="fileInput" accept=".txt,text/plain">
+      </div>`;
+
+    const input = document.getElementById('fileInput');
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => setWords(String(reader.result || ''));
+      reader.readAsText(file, 'utf-8');
+    });
+  }
+
+  /* ---------------- 事件绑定 ---------------- */
+
+  const listEl = document.getElementById('list');
+
+  listEl.addEventListener('click', e => {
+    const el = e.target.closest('.word');
+    if (!el) return;
+    const key = el.dataset.key;
+    if (state.mastered.has(key)) state.mastered.delete(key);
+    else state.mastered.add(key);
+    el.classList.toggle('mastered');
+    saveMastered();
+    updateProgress();
+  });
+
+  const searchEl = document.getElementById('search');
+  searchEl.addEventListener('input', () => {
+    state.query = searchEl.value;
+    render();
+  });
+
+  document.getElementById('reset').addEventListener('click', () => {
+    if (!state.mastered.size) return;
+    if (!confirm('确定清除所有「已掌握」标记吗？')) return;
+    state.mastered.clear();
+    saveMastered();
+    render();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement !== searchEl) {
+      e.preventDefault();
+      searchEl.focus();
+      searchEl.select();
+    } else if (e.key === 'Escape' && document.activeElement === searchEl) {
+      searchEl.value = '';
+      state.query = '';
+      render();
+      searchEl.blur();
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
