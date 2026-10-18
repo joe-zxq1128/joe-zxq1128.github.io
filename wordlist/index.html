@@ -96,6 +96,7 @@
   .word-row {
     display: flex; align-items: center; gap: 9px; padding: 8px 6px;
     border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background .12s;
+    flex-wrap: wrap;
   }
   .word-row:hover { background: #f5f9ff; }
   .word-row .word-w { font-weight: 600; font-size: 14px; color: #333; flex: none; word-break: break-word; }
@@ -103,15 +104,20 @@
     font-family: "Fira Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12.5px; color: #5b8def; flex: none; white-space: nowrap;
   }
-  .word-row .word-d { flex: 1; color: var(--muted); font-size: 13px; word-break: break-word; }
+  .word-row .word-d { flex: 1; color: var(--muted); font-size: 13px; word-break: break-word; min-width: 120px; }
   .word-row .word-ex {
     flex-basis: 100%; padding-left: 24px; font-size: 12px; color: #aaa;
-    line-height: 1.6; margin-top: 2px; display: none;
+    line-height: 1.6; margin-top: 2px; font-style: italic;
   }
-  .word-row.has-data .word-ex { display: block; }
+  .word-row .word-ex:empty { display: none; }
   .word-row.mastered .word-w { text-decoration: line-through; text-decoration-thickness: 1.5px; color: #aaa; }
   .word-row.mastered .word-p, .word-row.mastered .word-d, .word-row.mastered .word-ex { color: #bbb; }
   .word-row .loading-text { color: var(--muted-2); font-size: 12px; font-style: italic; }
+  .word-row .error-text { color: #d9822b; font-size: 12px; font-style: italic; }
+  .word-row .translating-badge {
+    display: inline-block; font-size: 11px; color: var(--muted-2);
+    background: #f0f0f0; padding: 0 5px; border-radius: 3px; margin-left: 4px; font-style: normal;
+  }
 
   .box {
     appearance: none; -webkit-appearance: none; width: 15px; height: 15px;
@@ -186,9 +192,7 @@
     .side-item.active { border-left-color: transparent; border-bottom-color: var(--primary); background: transparent; }
     .main { margin-left: 0; padding: 112px 14px 50px; }
     .topbar-search { width: 150px; }
-    .word-row { flex-wrap: wrap; gap: 2px 9px; align-items: flex-start; }
     .word-row .word-d { flex-basis: 100%; padding-left: 24px; }
-    .word-row .word-ex { padding-left: 24px; }
     .quiz-form { flex-direction: column; }
     .quiz-form .btn-primary { padding: 11px 20px; }
     .panel-body { padding: 10px 12px 14px; }
@@ -224,6 +228,7 @@
             <span id="ptext">已掌握 0 / 0</span>
             <div class="progress-wrap"><i id="barfill"></i></div>
             <button class="btn-tiny on" id="toggleApi">释义 开</button>
+            <button class="btn-tiny" id="clearCache">清空缓存</button>
             <button class="btn-tiny" id="reset">重置</button>
           </div>
         </div>
@@ -250,6 +255,9 @@
           </div>
           <p class="quiz-note" id="quizNote"></p>
           <button id="quizStart" class="btn btn-primary btn-block">开始复盘</button>
+          <p class="quiz-note" style="margin-top:14px">
+            数据来源：<code>dictionaryapi.dev</code> 提供音标与英文释义，<code>MyMemory</code> 后台翻译成中文。两个接口都无需 Key、支持跨域，可以直接在静态页面使用。若网络无法访问，单词本里会显示英文或加载失败提示。
+          </p>
         </div>
       </div>
 
@@ -288,21 +296,20 @@
   /* =========================================================
      配置
      ========================================================= */
-  const MASTER_KEY   = 'words-tool-mastered-v4';
-  const CACHE_KEY    = 'words-tool-def-cache-v1';
-  const API_ENABLED_KEY = 'words-tool-api-enabled-v1';
-
-  // 选择 API 提供者：'quickpronounce' | 'harika'
-  const API_PROVIDER = 'quickpronounce';
-  const QUICKPRONOUNCE_KEY = 'YOUR_API_KEY';   // ← 替换成你自己的 Key
+  const MASTER_KEY = 'words-tool-mastered-v5';
+  const CACHE_KEY  = 'words-tool-def-cache-v2';
+  const API_ENABLED_KEY = 'words-tool-api-enabled-v2';
 
   const SOURCES = ['wordlist.txt'];
+  const FETCH_TIMEOUT = 8000;
+  const CONCURRENCY = 2;            // 词典接口并发
+  const TRANSLATE_INTERVAL = 1100;  // MyMemory 每秒最多一次
 
   /* =========================================================
      状态
      ========================================================= */
   const state = {
-    words: [],          // [{ word, key }]
+    words: [],
     query: '',
     mastered: loadMastered(),
     view: 'browse'
@@ -315,9 +322,6 @@
 
   let nextTimer = null;
 
-  /* =========================================================
-     工具
-     ========================================================= */
   const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   const esc = s => String(s).replace(/[&<>"']/g, c => ESC_MAP[c]);
   const normalize = s => String(s).trim().toLowerCase().replace(/\s+/g, ' ');
@@ -340,7 +344,7 @@
   }
 
   /* =========================================================
-     词典数据缓存
+     缓存
      ========================================================= */
   let defCache = (function () {
     try { const r = localStorage.getItem(CACHE_KEY); return r ? JSON.parse(r) : {}; }
@@ -361,104 +365,199 @@
   }
 
   /* =========================================================
-     API 调用与数据归一化
+     超时工具
      ========================================================= */
-  const pending = new Set();      // 正在请求中的单词 key
-  const queue = [];               // 待请求队列
-  let running = 0;
-  const CONCURRENCY = 2;          // 免费接口，并发不要太高
-
-  /**
-   * 统一返回格式：
-   * { phonetic: 'dɪˈskɑːd', phoneticUS: '', phoneticUK: '',
-   *   def: '丢弃；抛弃', examples: ['...', '...'], pos: 'verb' }
-   */
-  async function fetchDefinition(word) {
-    if (API_PROVIDER === 'harika') return fetchHarika(word);
-    return fetchQuickPronounce(word);
+  function withTimeout(promise, ms) {
+    return Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('请求超时')), ms))
+    ]);
   }
 
-  async function fetchQuickPronounce(word) {
-    const url = 'https://api.quickpronounce.site/v1/dictionary/' + encodeURIComponent(word);
-    const res = await fetch(url, {
-      headers: { 'X-API-Key': QUICKPRONOUNCE_KEY }
-    });
-    if (!res.ok) throw new Error('QuickPronounce HTTP ' + res.status);
-    const json = await res.json();
-    if (!json.success || !json.data) return null;
+  /* =========================================================
+     词典数据：dictionaryapi.dev
+     ========================================================= */
+  async function fetchDict(word) {
+    const url = 'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word);
+    const res = await withTimeout(fetch(url), FETCH_TIMEOUT);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) throw new Error('无释义');
 
-    const d = json.data;
-    const entries = d.entries || [];
+    const entry = data[0];
+
+    // 音标（去掉斜杠）
+    let phonetic = '';
+    const clean = s => String(s || '').replace(/[\/\[\]]/g, '').trim();
+    if (entry.phonetic) phonetic = clean(entry.phonetic);
+    if (!phonetic && Array.isArray(entry.phonetics)) {
+      for (const p of entry.phonetics) {
+        if (p.text) { phonetic = clean(p.text); if (phonetic) break; }
+      }
+    }
+
+    // 释义 + 例句
     const defs = [];
     const examples = [];
+    for (const meaning of entry.meanings || []) {
+      const pos = meaning.partOfSpeech || '';
+      for (const d of meaning.definitions || []) {
+        if (d.definition) defs.push({ pos, text: d.definition });
+        if (d.example) examples.push(d.example);
+      }
+    }
 
-    entries.forEach(en => {
-      (en.definitions || []).forEach(def => defs.push(def));
-      (en.examples || []).forEach(ex => examples.push(ex));
-    });
+    const defEn = defs.slice(0, 2)
+      .map(d => (d.pos ? '(' + d.pos + ') ' : '') + d.text)
+      .join('; ');
 
     return {
-      phonetic:   d.phonetics?.us || d.phonetics?.uk || '',
-      phoneticUS: d.phonetics?.us || '',
-      phoneticUK: d.phonetics?.uk || '',
-      def:        defs.slice(0, 3).join('; '),   // 最多取 3 条释义
-      examples:   examples.slice(0, 2),           // 最多取 2 条例句
-      pos:        d.defaultPartOfSpeech || ''
+      phonetic,
+      defEn,
+      def: defEn,          // 中文翻译回来前先显示英文
+      defZh: '',
+      examples: examples.slice(0, 2),
+      translated: false,
+      error: false
     };
   }
 
-  async function fetchHarika(word) {
-    const url = 'https://dictionary-api-7hmy.onrender.com/define?word=' + encodeURIComponent(word);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Harika HTTP ' + res.status);
+  /* =========================================================
+     中文翻译：MyMemory
+     ========================================================= */
+  async function translateToZh(text) {
+    if (!text) return '';
+    const clean = text.replace(/\s+/g, ' ').trim().slice(0, 480);
+    if (!clean) return '';
+    const url = 'https://api.mymemory.translated.net/get?q=' +
+      encodeURIComponent(clean) + '&langpair=en|zh-CN';
+    const res = await withTimeout(fetch(url), FETCH_TIMEOUT);
+    if (!res.ok) return '';
     const json = await res.json();
-    if (!json || !json.definition) return null;
-
-    return {
-      phonetic:   (json.phonetics?.[0]?.text || '').replace(/[\/\[\]]/g, ''),
-      phoneticUS: '',
-      phoneticUK: '',
-      def:        json.definition,
-      examples:   json.example ? [json.example] : [],
-      pos:        json.partOfSpeech || ''
-    };
+    if (json.responseStatus !== 200) return '';
+    const zh = json.responseData && json.responseData.translatedText;
+    if (!zh) return '';
+    // 若是原样返回（翻译失败），丢弃
+    if (zh.toLowerCase() === clean.toLowerCase()) return '';
+    // 纯英文也丢弃
+    if (/^[A-Za-z0-9\s.,;:'"()\-]+$/.test(zh)) return '';
+    return zh;
   }
 
-  /* 队列调度 */
-  function enqueueDefinition(word) {
-    const key = word.toLowerCase();
+  /* =========================================================
+     请求队列：词典
+     ========================================================= */
+  const dictPending = new Set();
+  const dictQueue = [];
+  let dictRunning = 0;
+
+  function enqueueDict(word) {
     if (!apiEnabled) return;
+    const key = word.toLowerCase();
     if (key in defCache) return;
-    if (pending.has(key)) return;
-    if (queue.some(j => j.key === key)) return;
-    queue.push({ key, word });
-    pump();
+    if (dictPending.has(key)) return;
+    if (dictQueue.some(j => j.key === key)) return;
+    dictQueue.push({ key, word });
+    pumpDict();
   }
 
-  function pump() {
-    while (apiEnabled && running < CONCURRENCY && queue.length) {
-      const job = queue.shift();
-      pending.add(job.key);
-      running++;
-      fetchDefinition(job.word)
-        .then(data => {
-          defCache[job.key] = data || { def: '', examples: [], phonetic: '' };
-          saveDefCache();
-          updateWordDom(job.key);
-        })
-        .catch(() => {
-          // 网络错误也缓存空对象，避免反复请求
-          defCache[job.key] = { def: '', examples: [], phonetic: '' };
-          saveDefCache();
-        })
-        .finally(() => {
-          pending.delete(job.key);
-          running--;
-          pump();
-        });
+  function pumpDict() {
+    while (apiEnabled && dictRunning < CONCURRENCY && dictQueue.length) {
+      const job = dictQueue.shift();
+      dictPending.add(job.key);
+      dictRunning++;
+      processOne(job).finally(() => {
+        dictPending.delete(job.key);
+        dictRunning--;
+        pumpDict();
+      });
     }
   }
 
+  async function processOne(job) {
+    try {
+      const data = await fetchDict(job.word);
+      defCache[job.key] = data;
+      saveDefCache();
+      updateWordDom(job.key);
+      if (apiEnabled) enqueueTranslate(job.key, data.defEn);
+    } catch (err) {
+      defCache[job.key] = {
+        phonetic: '', defEn: '', def: '', defZh: '',
+        examples: [], translated: false, error: true,
+        errorMsg: err && err.message ? err.message : '失败'
+      };
+      saveDefCache();
+      updateWordDom(job.key);
+    }
+  }
+
+  /* =========================================================
+     请求队列：中文翻译（限速）
+     ========================================================= */
+  const trQueue = [];
+  const trPending = new Set();
+  let trRunning = false;
+  let lastTrTime = 0;
+
+  function enqueueTranslate(key, text) {
+    if (!text) return;
+    if (!apiEnabled) return;
+    const cached = defCache[key];
+    if (!cached) return;
+    if (cached.translated) return;
+    if (trPending.has(key)) return;
+    if (trQueue.some(j => j.key === key)) return;
+    trQueue.push({ key, text });
+    pumpTranslate();
+  }
+
+  async function pumpTranslate() {
+    if (trRunning) return;
+    if (!trQueue.length) return;
+    trRunning = true;
+
+    while (trQueue.length > 0 && apiEnabled) {
+      const job = trQueue.shift();
+      const now = Date.now();
+      const wait = Math.max(0, TRANSLATE_INTERVAL - (now - lastTrTime));
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+
+      lastTrTime = Date.now();
+      trPending.add(job.key);
+
+      try {
+        const zh = await translateToZh(job.text);
+        if (zh && defCache[job.key]) {
+          defCache[job.key].defZh = zh;
+          defCache[job.key].def = zh;
+          defCache[job.key].translated = true;
+          saveDefCache();
+          updateWordDom(job.key);
+        } else if (defCache[job.key]) {
+          // 翻译失败：标记，避免反复请求
+          defCache[job.key].translated = false;
+          defCache[job.key].translationFailed = true;
+          saveDefCache();
+          updateWordDom(job.key);
+        }
+      } catch (e) {
+        if (defCache[job.key]) {
+          defCache[job.key].translationFailed = true;
+          saveDefCache();
+          updateWordDom(job.key);
+        }
+      } finally {
+        trPending.delete(job.key);
+      }
+    }
+
+    trRunning = false;
+  }
+
+  /* =========================================================
+     更新 DOM
+     ========================================================= */
   function updateWordDom(key) {
     const data = defCache[key];
     if (!data) return;
@@ -469,36 +568,36 @@
   }
 
   function renderWordData(row, data) {
-    row.classList.add('has-data');
-
-    // 音标
     const phEl = row.querySelector('.word-p');
     if (phEl) {
-      if (data.phonetic) {
-        phEl.textContent = '/' + data.phonetic + '/';
-        phEl.hidden = false;
+      if (data.phonetic) { phEl.textContent = '/' + data.phonetic + '/'; phEl.hidden = false; }
+      else phEl.hidden = true;
+    }
+
+    const defEl = row.querySelector('.word-d');
+    if (defEl) {
+      if (data.error) {
+        defEl.innerHTML = '<span class="error-text">释义获取失败（' + esc(data.errorMsg || '未知') + '）</span>';
+      } else if (data.translated && data.defZh) {
+        defEl.textContent = data.defZh;
+      } else if (data.defEn) {
+        defEl.innerHTML = esc(data.defEn) +
+          '<span class="translating-badge">' +
+          (data.translationFailed ? '译未成功' : '翻译中…') +
+          '</span>';
       } else {
-        phEl.hidden = true;
+        defEl.textContent = '（无释义）';
       }
     }
 
-    // 释义
-    const defEl = row.querySelector('.word-d');
-    if (defEl) defEl.textContent = data.def || '（无释义）';
-
-    // 例句
     const exEl = row.querySelector('.word-ex');
     if (exEl) {
       if (data.examples && data.examples.length) {
-        exEl.innerHTML = data.examples.map(ex => `“${esc(ex)}”`).join('<br>');
+        exEl.innerHTML = data.examples.map(ex => '“' + esc(ex) + '”').join('<br>');
       } else {
-        exEl.textContent = '';
+        exEl.innerHTML = '';
       }
     }
-
-    // 移除 loading 占位
-    const loading = row.querySelector('.loading-text');
-    if (loading) loading.remove();
   }
 
   /* =========================================================
@@ -532,21 +631,21 @@
           obs.unobserve(e.target);
           const key = e.target.dataset.key;
           const word = e.target.dataset.word;
-          if (!apiEnabled || key in defCache) return;
-          enqueueDefinition(word);
+          if (!apiEnabled) return;
+          if (key in defCache) return;
+          enqueueDict(word);
         });
-      }, { rootMargin: '240px' })
+      }, { rootMargin: '260px' })
     : null;
 
   function renderBrowse() {
     const listEl = document.getElementById('list');
     const q = state.query.trim().toLowerCase();
-    const items = q
-      ? state.words.filter(w => w.key.includes(q))
-      : state.words;
+    const items = q ? state.words.filter(w => w.key.includes(q)) : state.words;
 
     if (!items.length) {
-      listEl.innerHTML = `<p class="empty">${state.words.length ? '没有匹配的单词 🤔' : '文件中没有解析到单词。'}</p>`;
+      listEl.innerHTML = '<p class="empty">' +
+        (state.words.length ? '没有匹配的单词 🤔' : '文件中没有解析到单词。') + '</p>';
       updateProgress();
       return;
     }
@@ -559,36 +658,52 @@
       const letter = /[a-z]/i.test(first) ? first.toUpperCase() : '#';
       if (letter !== curLetter) {
         curLetter = letter;
-        html += `<div class="letter-title">${esc(letter)}</div>`;
+        html += '<div class="letter-title">' + esc(letter) + '</div>';
       }
 
       const mastered = state.mastered.has(w.key);
       const cached = defCache[w.key];
-      const hasData = Boolean(cached);
-      const ph = cached?.phonetic || '';
-      const def = cached?.def || '';
-      const examples = cached?.examples || [];
+      const ph = cached && cached.phonetic ? cached.phonetic : '';
+      let defHtml = '<span class="loading-text">加载中…</span>';
+      let exHtml = '';
+
+      if (cached) {
+        if (cached.error) {
+          defHtml = '<span class="error-text">释义获取失败（' + esc(cached.errorMsg || '未知') + '）</span>';
+        } else if (cached.translated && cached.defZh) {
+          defHtml = esc(cached.defZh);
+        } else if (cached.defEn) {
+          defHtml = esc(cached.defEn) +
+            '<span class="translating-badge">' +
+            (cached.translationFailed ? '译未成功' : '翻译中…') +
+            '</span>';
+        } else {
+          defHtml = '（无释义）';
+        }
+        if (cached.examples && cached.examples.length) {
+          exHtml = cached.examples.map(ex => '“' + esc(ex) + '”').join('<br>');
+        }
+      }
 
       html +=
-        `<label class="word-row${mastered ? ' mastered' : ''}${hasData ? ' has-data' : ''}" data-key="${esc(w.key)}" data-word="${esc(w.word)}" title="勾选表示已掌握">` +
-          `<input type="checkbox" class="box"${mastered ? ' checked' : ''}>` +
-          `<span class="word-w">${esc(w.word)}</span>` +
-          `<span class="word-p"${ph ? '' : ' hidden'}>${ph ? '/' + esc(ph) + '/' : ''}</span>` +
-          `<span class="word-d">${hasData ? esc(def || '（无释义）') : '<span class="loading-text">加载中…</span>'}</span>` +
-          (examples.length ? `<span class="word-ex">${examples.map(ex => `“${esc(ex)}”`).join('<br>')}</span>` : `<span class="word-ex"></span>`) +
-        `</label>`;
+        '<label class="word-row' + (mastered ? ' mastered' : '') + '" data-key="' + esc(w.key) + '" data-word="' + esc(w.word) + '">' +
+          '<input type="checkbox" class="box"' + (mastered ? ' checked' : '') + '>' +
+          '<span class="word-w">' + esc(w.word) + '</span>' +
+          '<span class="word-p"' + (ph ? '' : ' hidden') + '>' + (ph ? '/' + esc(ph) + '/' : '') + '</span>' +
+          '<span class="word-d">' + defHtml + '</span>' +
+          '<span class="word-ex">' + exHtml + '</span>' +
+        '</label>';
     }
 
     listEl.innerHTML = html;
     updateProgress();
 
-    /* 视口内没有缓存的单词排队请求 */
     if (apiEnabled) {
       listEl.querySelectorAll('.word-row').forEach(el => {
         const key = el.dataset.key;
         if (key in defCache) return;
         if (obs) obs.observe(el);
-        else enqueueDefinition(el.dataset.word);
+        else enqueueDict(el.dataset.word);
       });
     }
   }
@@ -598,7 +713,7 @@
     let done = 0;
     for (const w of state.words) if (state.mastered.has(w.key)) done++;
     document.getElementById('barfill').style.width = total ? (done / total * 100) + '%' : '0%';
-    document.getElementById('ptext').textContent = `已掌握 ${done} / ${total}`;
+    document.getElementById('ptext').textContent = '已掌握 ' + done + ' / ' + total;
   }
 
   function setWords(text) {
@@ -640,7 +755,10 @@
      复盘
      ========================================================= */
   function getPool(scope) {
-    let pool = state.words.filter(w => defCache[w.key]?.def);
+    let pool = state.words.filter(w => {
+      const d = defCache[w.key];
+      return d && !d.error && d.def;
+    });
     if (scope === 'unmastered') pool = pool.filter(w => !state.mastered.has(w.key));
     else if (scope === 'mastered') pool = pool.filter(w => state.mastered.has(w.key));
     return pool;
@@ -653,10 +771,10 @@
     const note = document.getElementById('quizNote');
     const btn = document.getElementById('quizStart');
     if (n === 0) {
-      note.textContent = '该范围内没有可用的单词（需要先获取释义），换个范围或稍后再试。';
+      note.textContent = '该范围内没有可用的单词（需要先获取释义），请先回到单词本滚动加载一下。';
       btn.disabled = true;
     } else {
-      note.textContent = `本次共 ${n} 个单词`;
+      note.textContent = '本次共 ' + n + ' 个单词';
       btn.disabled = false;
     }
   }
@@ -676,7 +794,7 @@
   function showQuestion() {
     const q = quiz.questions[quiz.index];
     const data = currentDef(q);
-    document.getElementById('quizDef').textContent = data.def || '（无释义）';
+    document.getElementById('quizDef').textContent = data.def || data.defEn || '（无释义）';
     document.getElementById('quizHint').textContent = '';
     document.getElementById('quizInput').value = '';
     document.getElementById('quizInput').disabled = false;
@@ -686,8 +804,6 @@
     quiz.answered = false;
     updateQuizProgress();
     focusQuizInput();
-
-    if (apiEnabled && !(q.key in defCache)) enqueueDefinition(q.word);
   }
 
   function focusQuizInput() {
@@ -700,9 +816,9 @@
   function updateQuizProgress() {
     const total = quiz.questions.length;
     const cur = quiz.index + 1;
-    document.getElementById('quizProgress').textContent = `第 ${cur} / ${total} 题`;
+    document.getElementById('quizProgress').textContent = '第 ' + cur + ' / ' + total + ' 题';
     document.getElementById('quizScore').innerHTML =
-      `<span class="ok">✓ ${quiz.correct}</span>&nbsp;&nbsp;<span class="err">✗ ${quiz.wrong.length}</span>`;
+      '<span class="ok">✓ ' + quiz.correct + '</span>&nbsp;&nbsp;<span class="err">✗ ' + quiz.wrong.length + '</span>';
     document.getElementById('quizBarFill').style.width = total ? (cur / total * 100) + '%' : '0%';
   }
 
@@ -716,7 +832,7 @@
 
   function feedbackExample(data) {
     if (data.examples && data.examples.length) {
-      return `<span class="example">“${esc(data.examples[0])}”</span>`;
+      return '<span class="example">“' + esc(data.examples[0]) + '”</span>';
     }
     return '';
   }
@@ -738,7 +854,7 @@
       quiz.correct++;
       fb.className = 'quiz-feedback ok';
       fb.innerHTML = '✓ 正确' +
-        (data.phonetic ? `<span class="phon">/${esc(data.phonetic)}/</span>` : '') +
+        (data.phonetic ? '<span class="phon">/' + esc(data.phonetic) + '/</span>' : '') +
         feedbackExample(data);
       document.getElementById('quizSubmit').textContent = '下一题';
       updateQuizProgress();
@@ -746,8 +862,8 @@
     } else {
       quiz.wrong.push(q);
       fb.className = 'quiz-feedback err';
-      fb.innerHTML = `✗ 正确答案：<span class="answer">${esc(q.word)}</span>` +
-        (data.phonetic ? `<span class="phon">/${esc(data.phonetic)}/</span>` : '') +
+      fb.innerHTML = '✗ 正确答案：<span class="answer">' + esc(q.word) + '</span>' +
+        (data.phonetic ? '<span class="phon">/' + esc(data.phonetic) + '/</span>' : '') +
         feedbackExample(data);
       document.getElementById('quizSubmit').textContent = '下一题';
       updateQuizProgress();
@@ -773,8 +889,8 @@
     document.getElementById('quizInput').disabled = true;
     const fb = document.getElementById('quizFeedback');
     fb.className = 'quiz-feedback err';
-    fb.innerHTML = `已跳过 · 正确答案：<span class="answer">${esc(q.word)}</span>` +
-      (data.phonetic ? `<span class="phon">/${esc(data.phonetic)}/</span>` : '') +
+    fb.innerHTML = '已跳过 · 正确答案：<span class="answer">' + esc(q.word) + '</span>' +
+      (data.phonetic ? '<span class="phon">/' + esc(data.phonetic) + '/</span>' : '') +
       feedbackExample(data);
     document.getElementById('quizSubmit').textContent = '下一题';
     updateQuizProgress();
@@ -796,33 +912,33 @@
 
     const face = rate >= 90 ? '😎' : rate >= 70 ? '🙂' : rate >= 50 ? '😐' : '😣';
     let html =
-      `<div class="panel-header">复盘结果</div>` +
-      `<div class="panel-body">` +
-        `<div class="result-face">${face}</div>` +
-        `<div class="result-rate">${rate}<span>%</span></div>` +
-        `<div class="result-sub">正确 ${correct} / ${total}</div>`;
+      '<div class="panel-header">复盘结果</div>' +
+      '<div class="panel-body">' +
+        '<div class="result-face">' + face + '</div>' +
+        '<div class="result-rate">' + rate + '<span>%</span></div>' +
+        '<div class="result-sub">正确 ' + correct + ' / ' + total + '</div>';
 
     if (wrong.length) {
-      html += `<div class="result-wrong"><h3>错题回顾</h3><ul>` +
+      html += '<div class="result-wrong"><h3>错题回顾</h3><ul>' +
         wrong.map(w => {
           const data = currentDef(w);
           const ph = data.phonetic || '';
-          const ex = data.examples && data.examples.length ? `“${esc(data.examples[0])}”` : '';
-          return `<li><b>${esc(w.word)}</b>` +
-            (ph ? `<span class="rp">/${esc(ph)}/</span>` : '') +
-            `<span>${esc(data.def || '')}${ex ? ' · ' + ex : ''}</span></li>`;
+          const ex = data.examples && data.examples.length ? '“' + esc(data.examples[0]) + '”' : '';
+          return '<li><b>' + esc(w.word) + '</b>' +
+            (ph ? '<span class="rp">/' + esc(ph) + '/</span>' : '') +
+            '<span>' + esc(data.def || data.defEn || '') + (ex ? ' · ' + ex : '') + '</span></li>';
         }).join('') +
-        `</ul></div>`;
-      if (unmarked) html += `<p class="quiz-note">已将 ${unmarked} 个答错的单词标记为「未掌握」。</p>`;
+        '</ul></div>';
+      if (unmarked) html += '<p class="quiz-note">已将 ' + unmarked + ' 个答错的单词标记为「未掌握」。</p>';
     } else {
-      html += `<p class="quiz-note">全部答对，太棒了！</p>`;
+      html += '<p class="quiz-note">全部答对，太棒了！</p>';
     }
 
-    html += `<div class="result-actions">` +
-      (wrong.length ? `<button id="btnRetryWrong" class="btn btn-primary">重做错题</button>` : '') +
-      `<button id="btnAgain" class="btn btn-default">再来一轮</button>` +
-      `<button id="btnBackBrowse" class="btn btn-default">返回单词本</button>` +
-      `</div></div>`;
+    html += '<div class="result-actions">' +
+      (wrong.length ? '<button id="btnRetryWrong" class="btn btn-primary">重做错题</button>' : '') +
+      '<button id="btnAgain" class="btn btn-default">再来一轮</button>' +
+      '<button id="btnBackBrowse" class="btn btn-default">返回单词本</button>' +
+      '</div></div>';
 
     const resultEl = document.getElementById('quizResult');
     resultEl.innerHTML = html;
@@ -853,23 +969,23 @@
     for (const name of SOURCES) {
       try {
         const res = await fetch(name, { cache: 'no-store' });
-        if (!res.ok) throw new Error(name + '：HTTP ' + res.status);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         setWords(await res.text());
         return;
-      } catch (err) { /* 继续尝试下一个 */ }
+      } catch (err) { /* 尝试下一个 */ }
     }
     showFallback('无法读取 wordlist.txt');
   }
 
   function showFallback(errMsg) {
-    document.getElementById('list').innerHTML = `
-      <div class="notice">
-        <p><strong>无法自动读取 wordlist.txt</strong>（${esc(errMsg)}）</p>
-        <p>请在该目录下执行 <code>python -m http.server 8000</code> 后通过本地服务器访问，或手动选择文件：</p>
-        <input type="file" id="fileInput" accept=".txt,text/plain">
-      </div>`;
+    document.getElementById('list').innerHTML =
+      '<div class="notice">' +
+        '<p><strong>无法自动读取 wordlist.txt</strong>（' + esc(errMsg) + '）</p>' +
+        '<p>请在该目录下执行 <code>python -m http.server 8000</code> 后通过本地服务器访问，或手动选择文件：</p>' +
+        '<input type="file" id="fileInput" accept=".txt,text/plain">' +
+      '</div>';
     document.getElementById('fileInput').addEventListener('change', e => {
-      const file = e.target.files?.[0];
+      const file = e.target.files && e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => setWords(String(reader.result || ''));
@@ -895,11 +1011,22 @@
         const key = el.dataset.key;
         if (key in defCache) return;
         if (obs) obs.observe(el);
-        else enqueueDefinition(el.dataset.word);
+        else enqueueDict(el.dataset.word);
       });
     } else {
-      queue.length = 0;   // 清空待请求队列
+      dictQueue.length = 0;
+      trQueue.length = 0;
     }
+  });
+
+  document.getElementById('clearCache').addEventListener('click', () => {
+    if (!Object.keys(defCache).length) return;
+    if (!confirm('确定清空所有已缓存的释义和音标吗？之后会重新联网获取。')) return;
+    defCache = {};
+    saveDefCache();
+    dictQueue.length = 0;
+    trQueue.length = 0;
+    renderBrowse();
   });
 
   document.getElementById('sidebar').addEventListener('click', e => {
@@ -911,7 +1038,7 @@
   const listEl = document.getElementById('list');
   listEl.addEventListener('change', e => {
     const box = e.target;
-    if (!box.classList.contains('box')) return;
+    if (!box.classList || !box.classList.contains('box')) return;
     const row = box.closest('.word-row');
     if (!row) return;
     const key = row.dataset.key;
@@ -941,8 +1068,8 @@
     const data = currentDef(q);
     const letters = q.word.replace(/[^A-Za-z]/g, '');
     document.getElementById('quizHint').textContent =
-      `首字母 ${q.word.charAt(0).toUpperCase()} · 共 ${letters.length} 个字母` +
-      (data.phonetic ? ` · /${data.phonetic}/` : '');
+      '首字母 ' + q.word.charAt(0).toUpperCase() + ' · 共 ' + letters.length + ' 个字母' +
+      (data.phonetic ? ' · /' + data.phonetic + '/' : '');
   });
 
   document.getElementById('quizSkip').addEventListener('click', skipQuestion);
