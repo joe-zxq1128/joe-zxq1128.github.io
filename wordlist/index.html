@@ -112,12 +112,7 @@
   .word-row .word-ex:empty { display: none; }
   .word-row.mastered .word-w { text-decoration: line-through; text-decoration-thickness: 1.5px; color: #aaa; }
   .word-row.mastered .word-p, .word-row.mastered .word-d, .word-row.mastered .word-ex { color: #bbb; }
-  .word-row .loading-text { color: var(--muted-2); font-size: 12px; font-style: italic; }
-  .word-row .error-text { color: #d9822b; font-size: 12px; font-style: italic; }
-  .word-row .translating-badge {
-    display: inline-block; font-size: 11px; color: var(--muted-2);
-    background: #f0f0f0; padding: 0 5px; border-radius: 3px; margin-left: 4px; font-style: normal;
-  }
+  .word-row .miss-text { color: #c77; font-size: 12px; font-style: italic; }
 
   .box {
     appearance: none; -webkit-appearance: none; width: 15px; height: 15px;
@@ -227,8 +222,6 @@
           <div class="header-right">
             <span id="ptext">已掌握 0 / 0</span>
             <div class="progress-wrap"><i id="barfill"></i></div>
-            <button class="btn-tiny on" id="toggleApi">释义 开</button>
-            <button class="btn-tiny" id="clearCache">清空缓存</button>
             <button class="btn-tiny" id="reset">重置</button>
           </div>
         </div>
@@ -256,7 +249,7 @@
           <p class="quiz-note" id="quizNote"></p>
           <button id="quizStart" class="btn btn-primary btn-block">开始复盘</button>
           <p class="quiz-note" style="margin-top:14px">
-            数据来源：<code>dictionaryapi.dev</code> 提供音标与英文释义，<code>MyMemory</code> 后台翻译成中文。两个接口都无需 Key、支持跨域，可以直接在静态页面使用。若网络无法访问，单词本里会显示英文或加载失败提示。
+            释义来源：ECDICT 离线词库（约 3000 个高频词），音标和中文释义都在本地直接读取，无需联网。未被收录的单词会标注“未收录”。
           </p>
         </div>
       </div>
@@ -296,14 +289,11 @@
   /* =========================================================
      配置
      ========================================================= */
-  const MASTER_KEY = 'words-tool-mastered-v5';
-  const CACHE_KEY  = 'words-tool-def-cache-v2';
-  const API_ENABLED_KEY = 'words-tool-api-enabled-v2';
-
+  const MASTER_KEY = 'words-tool-mastered-v6';
   const SOURCES = ['wordlist.txt'];
-  const FETCH_TIMEOUT = 8000;
-  const CONCURRENCY = 2;            // 词典接口并发
-  const TRANSLATE_INTERVAL = 1100;  // MyMemory 每秒最多一次
+
+  // ECDICT 精简词库（3000 高频词），格式：[word, phonetic, definition, translation]
+  const ECDICT_URL = 'https://raw.githubusercontent.com/FluentRead/FluentRead/main/public/ecdict-core.json';
 
   /* =========================================================
      状态
@@ -321,7 +311,11 @@
   };
 
   let nextTimer = null;
+  let dict = new Map();       // key: lowercase word -> { phonetic, translation, definition }
 
+  /* =========================================================
+     工具
+     ========================================================= */
   const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   const esc = s => String(s).replace(/[&<>"']/g, c => ESC_MAP[c]);
   const normalize = s => String(s).trim().toLowerCase().replace(/\s+/g, ' ');
@@ -344,260 +338,28 @@
   }
 
   /* =========================================================
-     缓存
+     加载 ECDICT 离线词库
      ========================================================= */
-  let defCache = (function () {
-    try { const r = localStorage.getItem(CACHE_KEY); return r ? JSON.parse(r) : {}; }
-    catch (e) { return {}; }
-  })();
+  async function loadDict() {
+    const res = await fetch(ECDICT_URL, { cache: 'force-cache' });
+    if (!res.ok) throw new Error('ECDICT 加载失败：HTTP ' + res.status);
+    const rows = await res.json();
 
-  function saveDefCache() {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(defCache)); } catch (e) {}
-  }
-
-  let apiEnabled = (function () {
-    try { const v = localStorage.getItem(API_ENABLED_KEY); return v === null ? true : v === '1'; }
-    catch (e) { return true; }
-  })();
-
-  function saveApiEnabled() {
-    try { localStorage.setItem(API_ENABLED_KEY, apiEnabled ? '1' : '0'); } catch (e) {}
-  }
-
-  /* =========================================================
-     超时工具
-     ========================================================= */
-  function withTimeout(promise, ms) {
-    return Promise.race([
-      promise,
-      new Promise((_, rej) => setTimeout(() => rej(new Error('请求超时')), ms))
-    ]);
-  }
-
-  /* =========================================================
-     词典数据：dictionaryapi.dev
-     ========================================================= */
-  async function fetchDict(word) {
-    const url = 'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word);
-    const res = await withTimeout(fetch(url), FETCH_TIMEOUT);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    if (!Array.isArray(data) || !data.length) throw new Error('无释义');
-
-    const entry = data[0];
-
-    // 音标（去掉斜杠）
-    let phonetic = '';
-    const clean = s => String(s || '').replace(/[\/\[\]]/g, '').trim();
-    if (entry.phonetic) phonetic = clean(entry.phonetic);
-    if (!phonetic && Array.isArray(entry.phonetics)) {
-      for (const p of entry.phonetics) {
-        if (p.text) { phonetic = clean(p.text); if (phonetic) break; }
-      }
-    }
-
-    // 释义 + 例句
-    const defs = [];
-    const examples = [];
-    for (const meaning of entry.meanings || []) {
-      const pos = meaning.partOfSpeech || '';
-      for (const d of meaning.definitions || []) {
-        if (d.definition) defs.push({ pos, text: d.definition });
-        if (d.example) examples.push(d.example);
-      }
-    }
-
-    const defEn = defs.slice(0, 2)
-      .map(d => (d.pos ? '(' + d.pos + ') ' : '') + d.text)
-      .join('; ');
-
-    return {
-      phonetic,
-      defEn,
-      def: defEn,          // 中文翻译回来前先显示英文
-      defZh: '',
-      examples: examples.slice(0, 2),
-      translated: false,
-      error: false
-    };
-  }
-
-  /* =========================================================
-     中文翻译：MyMemory
-     ========================================================= */
-  async function translateToZh(text) {
-    if (!text) return '';
-    const clean = text.replace(/\s+/g, ' ').trim().slice(0, 480);
-    if (!clean) return '';
-    const url = 'https://api.mymemory.translated.net/get?q=' +
-      encodeURIComponent(clean) + '&langpair=en|zh-CN';
-    const res = await withTimeout(fetch(url), FETCH_TIMEOUT);
-    if (!res.ok) return '';
-    const json = await res.json();
-    if (json.responseStatus !== 200) return '';
-    const zh = json.responseData && json.responseData.translatedText;
-    if (!zh) return '';
-    // 若是原样返回（翻译失败），丢弃
-    if (zh.toLowerCase() === clean.toLowerCase()) return '';
-    // 纯英文也丢弃
-    if (/^[A-Za-z0-9\s.,;:'"()\-]+$/.test(zh)) return '';
-    return zh;
-  }
-
-  /* =========================================================
-     请求队列：词典
-     ========================================================= */
-  const dictPending = new Set();
-  const dictQueue = [];
-  let dictRunning = 0;
-
-  function enqueueDict(word) {
-    if (!apiEnabled) return;
-    const key = word.toLowerCase();
-    if (key in defCache) return;
-    if (dictPending.has(key)) return;
-    if (dictQueue.some(j => j.key === key)) return;
-    dictQueue.push({ key, word });
-    pumpDict();
-  }
-
-  function pumpDict() {
-    while (apiEnabled && dictRunning < CONCURRENCY && dictQueue.length) {
-      const job = dictQueue.shift();
-      dictPending.add(job.key);
-      dictRunning++;
-      processOne(job).finally(() => {
-        dictPending.delete(job.key);
-        dictRunning--;
-        pumpDict();
+    dict.clear();
+    for (const row of rows) {
+      if (!Array.isArray(row) || row.length < 4) continue;
+      const word = String(row[0] || '').trim().toLowerCase();
+      if (!word) continue;
+      dict.set(word, {
+        phonetic: String(row[1] || '').trim(),
+        definition: String(row[2] || '').trim(),
+        translation: String(row[3] || '').trim()
       });
     }
   }
 
-  async function processOne(job) {
-    try {
-      const data = await fetchDict(job.word);
-      defCache[job.key] = data;
-      saveDefCache();
-      updateWordDom(job.key);
-      if (apiEnabled) enqueueTranslate(job.key, data.defEn);
-    } catch (err) {
-      defCache[job.key] = {
-        phonetic: '', defEn: '', def: '', defZh: '',
-        examples: [], translated: false, error: true,
-        errorMsg: err && err.message ? err.message : '失败'
-      };
-      saveDefCache();
-      updateWordDom(job.key);
-    }
-  }
-
-  /* =========================================================
-     请求队列：中文翻译（限速）
-     ========================================================= */
-  const trQueue = [];
-  const trPending = new Set();
-  let trRunning = false;
-  let lastTrTime = 0;
-
-  function enqueueTranslate(key, text) {
-    if (!text) return;
-    if (!apiEnabled) return;
-    const cached = defCache[key];
-    if (!cached) return;
-    if (cached.translated) return;
-    if (trPending.has(key)) return;
-    if (trQueue.some(j => j.key === key)) return;
-    trQueue.push({ key, text });
-    pumpTranslate();
-  }
-
-  async function pumpTranslate() {
-    if (trRunning) return;
-    if (!trQueue.length) return;
-    trRunning = true;
-
-    while (trQueue.length > 0 && apiEnabled) {
-      const job = trQueue.shift();
-      const now = Date.now();
-      const wait = Math.max(0, TRANSLATE_INTERVAL - (now - lastTrTime));
-      if (wait > 0) await new Promise(r => setTimeout(r, wait));
-
-      lastTrTime = Date.now();
-      trPending.add(job.key);
-
-      try {
-        const zh = await translateToZh(job.text);
-        if (zh && defCache[job.key]) {
-          defCache[job.key].defZh = zh;
-          defCache[job.key].def = zh;
-          defCache[job.key].translated = true;
-          saveDefCache();
-          updateWordDom(job.key);
-        } else if (defCache[job.key]) {
-          // 翻译失败：标记，避免反复请求
-          defCache[job.key].translated = false;
-          defCache[job.key].translationFailed = true;
-          saveDefCache();
-          updateWordDom(job.key);
-        }
-      } catch (e) {
-        if (defCache[job.key]) {
-          defCache[job.key].translationFailed = true;
-          saveDefCache();
-          updateWordDom(job.key);
-        }
-      } finally {
-        trPending.delete(job.key);
-      }
-    }
-
-    trRunning = false;
-  }
-
-  /* =========================================================
-     更新 DOM
-     ========================================================= */
-  function updateWordDom(key) {
-    const data = defCache[key];
-    if (!data) return;
-    let rows;
-    try { rows = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"]'); }
-    catch (e) { rows = []; }
-    rows.forEach(row => renderWordData(row, data));
-  }
-
-  function renderWordData(row, data) {
-    const phEl = row.querySelector('.word-p');
-    if (phEl) {
-      if (data.phonetic) { phEl.textContent = '/' + data.phonetic + '/'; phEl.hidden = false; }
-      else phEl.hidden = true;
-    }
-
-    const defEl = row.querySelector('.word-d');
-    if (defEl) {
-      if (data.error) {
-        defEl.innerHTML = '<span class="error-text">释义获取失败（' + esc(data.errorMsg || '未知') + '）</span>';
-      } else if (data.translated && data.defZh) {
-        defEl.textContent = data.defZh;
-      } else if (data.defEn) {
-        defEl.innerHTML = esc(data.defEn) +
-          '<span class="translating-badge">' +
-          (data.translationFailed ? '译未成功' : '翻译中…') +
-          '</span>';
-      } else {
-        defEl.textContent = '（无释义）';
-      }
-    }
-
-    const exEl = row.querySelector('.word-ex');
-    if (exEl) {
-      if (data.examples && data.examples.length) {
-        exEl.innerHTML = data.examples.map(ex => '“' + esc(ex) + '”').join('<br>');
-      } else {
-        exEl.innerHTML = '';
-      }
-    }
+  function lookup(word) {
+    return dict.get(word.toLowerCase()) || null;
   }
 
   /* =========================================================
@@ -624,20 +386,6 @@
   /* =========================================================
      单词本渲染
      ========================================================= */
-  const obs = ('IntersectionObserver' in window)
-    ? new IntersectionObserver(entries => {
-        entries.forEach(e => {
-          if (!e.isIntersecting) return;
-          obs.unobserve(e.target);
-          const key = e.target.dataset.key;
-          const word = e.target.dataset.word;
-          if (!apiEnabled) return;
-          if (key in defCache) return;
-          enqueueDict(word);
-        });
-      }, { rootMargin: '260px' })
-    : null;
-
   function renderBrowse() {
     const listEl = document.getElementById('list');
     const q = state.query.trim().toLowerCase();
@@ -662,31 +410,31 @@
       }
 
       const mastered = state.mastered.has(w.key);
-      const cached = defCache[w.key];
-      const ph = cached && cached.phonetic ? cached.phonetic : '';
-      let defHtml = '<span class="loading-text">加载中…</span>';
-      let exHtml = '';
+      const data = lookup(w.word);
+      const ph = data && data.phonetic ? data.phonetic : '';
+      const trans = data && data.translation ? data.translation : '';
+      const def = data && data.definition ? data.definition : '';
 
-      if (cached) {
-        if (cached.error) {
-          defHtml = '<span class="error-text">释义获取失败（' + esc(cached.errorMsg || '未知') + '）</span>';
-        } else if (cached.translated && cached.defZh) {
-          defHtml = esc(cached.defZh);
-        } else if (cached.defEn) {
-          defHtml = esc(cached.defEn) +
-            '<span class="translating-badge">' +
-            (cached.translationFailed ? '译未成功' : '翻译中…') +
-            '</span>';
-        } else {
-          defHtml = '（无释义）';
-        }
-        if (cached.examples && cached.examples.length) {
-          exHtml = cached.examples.map(ex => '“' + esc(ex) + '”').join('<br>');
-        }
+      let defHtml;
+      if (trans) {
+        defHtml = esc(trans);
+      } else if (data) {
+        defHtml = '<span class="miss-text">（词库中无中文释义）</span>';
+      } else {
+        defHtml = '<span class="miss-text">（未收录）</span>';
+      }
+
+      // 从 definition 中尝试提取例句（ECDICT 的 definition 有时含例句，用换行分隔）
+      let exHtml = '';
+      if (def) {
+        const lines = def.split(/\\n|\n/).map(s => s.trim()).filter(Boolean);
+        // 取最后一条看起来像例句的（通常以大写字母开头、以标点结尾）
+        const ex = lines.find(l => /^[A-Z"“].*[.!?"”]$/.test(l));
+        if (ex) exHtml = '“' + esc(ex) + '”';
       }
 
       html +=
-        '<label class="word-row' + (mastered ? ' mastered' : '') + '" data-key="' + esc(w.key) + '" data-word="' + esc(w.word) + '">' +
+        '<label class="word-row' + (mastered ? ' mastered' : '') + '" data-key="' + esc(w.key) + '">' +
           '<input type="checkbox" class="box"' + (mastered ? ' checked' : '') + '>' +
           '<span class="word-w">' + esc(w.word) + '</span>' +
           '<span class="word-p"' + (ph ? '' : ' hidden') + '>' + (ph ? '/' + esc(ph) + '/' : '') + '</span>' +
@@ -697,15 +445,6 @@
 
     listEl.innerHTML = html;
     updateProgress();
-
-    if (apiEnabled) {
-      listEl.querySelectorAll('.word-row').forEach(el => {
-        const key = el.dataset.key;
-        if (key in defCache) return;
-        if (obs) obs.observe(el);
-        else enqueueDict(el.dataset.word);
-      });
-    }
   }
 
   function updateProgress() {
@@ -756,8 +495,8 @@
      ========================================================= */
   function getPool(scope) {
     let pool = state.words.filter(w => {
-      const d = defCache[w.key];
-      return d && !d.error && d.def;
+      const d = lookup(w.word);
+      return d && d.translation;   // 必须有中文释义才能出题
     });
     if (scope === 'unmastered') pool = pool.filter(w => !state.mastered.has(w.key));
     else if (scope === 'mastered') pool = pool.filter(w => state.mastered.has(w.key));
@@ -771,7 +510,7 @@
     const note = document.getElementById('quizNote');
     const btn = document.getElementById('quizStart');
     if (n === 0) {
-      note.textContent = '该范围内没有可用的单词（需要先获取释义），请先回到单词本滚动加载一下。';
+      note.textContent = '该范围内没有可用的单词（需要词库中有中文释义），换个范围试试吧。';
       btn.disabled = true;
     } else {
       note.textContent = '本次共 ' + n + ' 个单词';
@@ -789,12 +528,12 @@
     showQuestion();
   }
 
-  function currentDef(q) { return defCache[q.key] || {}; }
+  function currentDef(q) { return lookup(q.word) || {}; }
 
   function showQuestion() {
     const q = quiz.questions[quiz.index];
     const data = currentDef(q);
-    document.getElementById('quizDef').textContent = data.def || data.defEn || '（无释义）';
+    document.getElementById('quizDef').textContent = data.translation || '（无中文释义）';
     document.getElementById('quizHint').textContent = '';
     document.getElementById('quizInput').value = '';
     document.getElementById('quizInput').disabled = false;
@@ -831,10 +570,10 @@
   }
 
   function feedbackExample(data) {
-    if (data.examples && data.examples.length) {
-      return '<span class="example">“' + esc(data.examples[0]) + '”</span>';
-    }
-    return '';
+    if (!data.definition) return '';
+    const lines = data.definition.split(/\\n|\n/).map(s => s.trim()).filter(Boolean);
+    const ex = lines.find(l => /^[A-Z"“].*[.!?"”]$/.test(l));
+    return ex ? '<span class="example">“' + esc(ex) + '”</span>' : '';
   }
 
   function submitAnswer() {
@@ -923,10 +662,9 @@
         wrong.map(w => {
           const data = currentDef(w);
           const ph = data.phonetic || '';
-          const ex = data.examples && data.examples.length ? '“' + esc(data.examples[0]) + '”' : '';
           return '<li><b>' + esc(w.word) + '</b>' +
             (ph ? '<span class="rp">/' + esc(ph) + '/</span>' : '') +
-            '<span>' + esc(data.def || data.defEn || '') + (ex ? ' · ' + ex : '') + '</span></li>';
+            '<span>' + esc(data.translation || '') + '</span></li>';
         }).join('') +
         '</ul></div>';
       if (unmarked) html += '<p class="quiz-note">已将 ' + unmarked + ' 个答错的单词标记为「未掌握」。</p>';
@@ -963,9 +701,22 @@
   }
 
   /* =========================================================
-     数据加载
+     启动
      ========================================================= */
   async function init() {
+    // 先加载 ECDICT 词库
+    try {
+      await loadDict();
+    } catch (err) {
+      document.getElementById('list').innerHTML =
+        '<div class="notice">' +
+          '<p><strong>离线词库加载失败</strong>（' + esc(err.message) + '）</p>' +
+          '<p>请检查网络是否能访问 GitHub Raw。如果访问不稳定，可以把 <code>ecdict-core.json</code> 下载到本地同目录，然后将代码里的 <code>ECDICT_URL</code> 改为 <code>ecdict-core.json</code>。</p>' +
+        '</div>';
+      return;
+    }
+
+    // 再加载单词表
     for (const name of SOURCES) {
       try {
         const res = await fetch(name, { cache: 'no-store' });
@@ -994,41 +745,8 @@
   }
 
   /* =========================================================
-     开关与事件
+     事件
      ========================================================= */
-  function syncApiBtn() {
-    const btn = document.getElementById('toggleApi');
-    btn.textContent = apiEnabled ? '释义 开' : '释义 关';
-    btn.classList.toggle('on', apiEnabled);
-  }
-
-  document.getElementById('toggleApi').addEventListener('click', () => {
-    apiEnabled = !apiEnabled;
-    saveApiEnabled();
-    syncApiBtn();
-    if (apiEnabled) {
-      document.querySelectorAll('#list .word-row').forEach(el => {
-        const key = el.dataset.key;
-        if (key in defCache) return;
-        if (obs) obs.observe(el);
-        else enqueueDict(el.dataset.word);
-      });
-    } else {
-      dictQueue.length = 0;
-      trQueue.length = 0;
-    }
-  });
-
-  document.getElementById('clearCache').addEventListener('click', () => {
-    if (!Object.keys(defCache).length) return;
-    if (!confirm('确定清空所有已缓存的释义和音标吗？之后会重新联网获取。')) return;
-    defCache = {};
-    saveDefCache();
-    dictQueue.length = 0;
-    trQueue.length = 0;
-    renderBrowse();
-  });
-
   document.getElementById('sidebar').addEventListener('click', e => {
     const btn = e.target.closest('.side-item');
     if (!btn || state.view === btn.dataset.view) return;
@@ -1088,7 +806,6 @@
     }
   });
 
-  syncApiBtn();
   updateQuizNote();
   init();
 })();
