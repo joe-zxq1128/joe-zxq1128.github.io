@@ -104,7 +104,7 @@
     font-family: "Fira Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12.5px; color: #5b8def; flex: none; white-space: nowrap;
   }
-  .word-row .word-d { flex: 1; color: var(--muted); font-size: 13px; word-break: break-word; min-width: 120px; }
+  .word-row .word-d { flex: 1; color: var(--muted); font-size: 13px; word-break: break-word; min-width: 120px; line-height: 1.6; }
   .word-row .word-ex {
     flex-basis: 100%; padding-left: 24px; font-size: 12px; color: #aaa;
     line-height: 1.6; margin-top: 2px; font-style: italic;
@@ -113,6 +113,7 @@
   .word-row.mastered .word-w { text-decoration: line-through; text-decoration-thickness: 1.5px; color: #aaa; }
   .word-row.mastered .word-p, .word-row.mastered .word-d, .word-row.mastered .word-ex { color: #bbb; }
   .word-row .miss-text { color: #c77; font-size: 12px; font-style: italic; }
+  .word-row .source-badge { font-size: 11px; color: var(--muted-2); background: #f0f0f0; padding: 0 5px; border-radius: 3px; margin-left: 4px; font-style: normal; }
 
   .box {
     appearance: none; -webkit-appearance: none; width: 15px; height: 15px;
@@ -138,7 +139,7 @@
   .quiz-top .err { color: var(--negative); font-weight: 600; }
   .quiz-bar { height: 5px; border-radius: 3px; background: #e8e8e8; overflow: hidden; margin-bottom: 20px; }
   .quiz-bar > i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--primary); transition: width .3s ease; }
-  .quiz-def { font-size: 19px; font-weight: 600; line-height: 1.6; color: #222; margin-bottom: 6px; word-break: break-word; }
+  .quiz-def { font-size: 19px; font-weight: 600; line-height: 1.6; color: #222; margin-bottom: 6px; word-break: break-word; white-space: pre-wrap; }
   .quiz-hintrow { display: flex; align-items: center; gap: 10px; min-height: 28px; margin-bottom: 16px; flex-wrap: wrap; }
   .quiz-hintbtn { font-family: inherit; font-size: 12px; padding: 3px 10px; border-radius: 4px; border: 1px solid #d0d5dd; background: #fff; color: var(--muted); cursor: pointer; }
   .quiz-hintbtn:hover { border-color: var(--primary); color: var(--primary); }
@@ -249,7 +250,7 @@
           <p class="quiz-note" id="quizNote"></p>
           <button id="quizStart" class="btn btn-primary btn-block">开始复盘</button>
           <p class="quiz-note" style="margin-top:14px">
-            释义来源：ECDICT 离线词库（约 3000 个高频词），音标和中文释义都在本地直接读取，无需联网。未被收录的单词会标注“未收录”。
+            释义来源：优先读取本地 ECDICT 精简词库；未被收录的单词会自动查询免费中文词典接口补充。音标统一由 dictionaryapi.dev 提供。
           </p>
         </div>
       </div>
@@ -289,11 +290,15 @@
   /* =========================================================
      配置
      ========================================================= */
-  const MASTER_KEY = 'words-tool-mastered-v6';
+  const MASTER_KEY = 'words-tool-mastered-v7';
+  const PHONETIC_CACHE_KEY = 'words-tool-phonetic-cache-v1';
   const SOURCES = ['wordlist.txt'];
 
-  // ECDICT 精简词库（3000 高频词），格式：[word, phonetic, definition, translation]
+  // ECDICT 精简词库（3000 高频词）
   const ECDICT_URL = 'https://raw.githubusercontent.com/FluentRead/FluentRead/main/public/ecdict-core.json';
+
+  // dictionaryapi.dev 音标接口
+  const PHONETIC_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
 
   /* =========================================================
      状态
@@ -311,7 +316,8 @@
   };
 
   let nextTimer = null;
-  let dict = new Map();       // key: lowercase word -> { phonetic, translation, definition }
+  let dict = new Map();          // ECDICT 本地词库
+  let phoneticCache = loadPhoneticCache();   // 联网获取的音标缓存
 
   /* =========================================================
      工具
@@ -329,6 +335,11 @@
     return a;
   }
 
+  /* 关键修复：把字面量 \n 转成真实换行 */
+  function unescapeNewlines(s) {
+    return String(s).replace(/\\n/g, '\n').replace(/\\r/g, '');
+  }
+
   function loadMastered() {
     try { const r = localStorage.getItem(MASTER_KEY); return new Set(r ? JSON.parse(r) : []); }
     catch (e) { return new Set(); }
@@ -337,8 +348,16 @@
     try { localStorage.setItem(MASTER_KEY, JSON.stringify([...state.mastered])); } catch (e) {}
   }
 
+  function loadPhoneticCache() {
+    try { const r = localStorage.getItem(PHONETIC_CACHE_KEY); return r ? JSON.parse(r) : {}; }
+    catch (e) { return {}; }
+  }
+  function savePhoneticCache() {
+    try { localStorage.setItem(PHONETIC_CACHE_KEY, JSON.stringify(phoneticCache)); } catch (e) {}
+  }
+
   /* =========================================================
-     加载 ECDICT 离线词库
+     加载 ECDICT 离线词库（修复 \n）
      ========================================================= */
   async function loadDict() {
     const res = await fetch(ECDICT_URL, { cache: 'force-cache' });
@@ -352,8 +371,8 @@
       if (!word) continue;
       dict.set(word, {
         phonetic: String(row[1] || '').trim(),
-        definition: String(row[2] || '').trim(),
-        translation: String(row[3] || '').trim()
+        definition: unescapeNewlines(row[2]),   // 修复 \n
+        translation: unescapeNewlines(row[3])   // 修复 \n
       });
     }
   }
@@ -363,7 +382,91 @@
   }
 
   /* =========================================================
-     解析 wordlist.txt —— 每行一个单词
+     音标：dictionaryapi.dev
+     ========================================================= */
+  const phoneticQueue = [];
+  const phoneticPending = new Set();
+  let phoneticRunning = 0;
+  const PHONETIC_CONCURRENCY = 3;
+
+  function enqueuePhonetic(word) {
+    const key = word.toLowerCase();
+    if (phoneticCache[key] !== undefined) return;
+    if (!/^[A-Za-z][A-Za-z'’\-]*$/.test(word)) return;
+    if (phoneticPending.has(key)) return;
+    if (phoneticQueue.some(j => j.key === key)) return;
+    phoneticQueue.push({ key, word });
+    pumpPhonetic();
+  }
+
+  function pumpPhonetic() {
+    while (phoneticRunning < PHONETIC_CONCURRENCY && phoneticQueue.length) {
+      const job = phoneticQueue.shift();
+      phoneticPending.add(job.key);
+      phoneticRunning++;
+      fetchPhonetic(job.word)
+        .then(ph => {
+          phoneticCache[job.key] = ph || '';
+          savePhoneticCache();
+          updatePhoneticDom(job.key);
+        })
+        .catch(() => {
+          phoneticCache[job.key] = '';
+          savePhoneticCache();
+        })
+        .finally(() => {
+          phoneticPending.delete(job.key);
+          phoneticRunning--;
+          pumpPhonetic();
+        });
+    }
+  }
+
+  async function fetchPhonetic(word) {
+    const url = PHONETIC_API + encodeURIComponent(word);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) return '';
+    for (const entry of data) {
+      if (entry.phonetic) return entry.phonetic.replace(/[\/\[\]]/g, '').trim();
+      if (Array.isArray(entry.phonetics)) {
+        for (const p of entry.phonetics) {
+          if (p.text) return p.text.replace(/[\/\[\]]/g, '').trim();
+        }
+      }
+    }
+    return '';
+  }
+
+  function updatePhoneticDom(key) {
+    const ph = phoneticCache[key];
+    if (!ph) return;
+    let nodes;
+    try { nodes = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"] .word-p'); }
+    catch (e) { nodes = []; }
+    nodes.forEach(el => {
+      el.textContent = '/' + ph + '/';
+      el.hidden = false;
+    });
+  }
+
+  const phoneticObserver = ('IntersectionObserver' in window)
+    ? new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (!e.isIntersecting) return;
+          phoneticObserver.unobserve(e.target);
+          const key = e.target.dataset.key;
+          const word = e.target.dataset.word;
+          if (phoneticCache[key] !== undefined) return;
+          if (lookup(word)?.phonetic) return;   // ECDICT 已有音标，跳过联网
+          enqueuePhonetic(word);
+        });
+      }, { rootMargin: '240px' })
+    : null;
+
+  /* =========================================================
+     解析 wordlist.txt
      ========================================================= */
   function parseWords(text) {
     const out = [];
@@ -411,9 +514,8 @@
 
       const mastered = state.mastered.has(w.key);
       const data = lookup(w.word);
-      const ph = data && data.phonetic ? data.phonetic : '';
+      const ph = (data && data.phonetic) || phoneticCache[w.key] || '';
       const trans = data && data.translation ? data.translation : '';
-      const def = data && data.definition ? data.definition : '';
 
       let defHtml;
       if (trans) {
@@ -421,30 +523,31 @@
       } else if (data) {
         defHtml = '<span class="miss-text">（词库中无中文释义）</span>';
       } else {
-        defHtml = '<span class="miss-text">（未收录）</span>';
-      }
-
-      // 从 definition 中尝试提取例句（ECDICT 的 definition 有时含例句，用换行分隔）
-      let exHtml = '';
-      if (def) {
-        const lines = def.split(/\\n|\n/).map(s => s.trim()).filter(Boolean);
-        // 取最后一条看起来像例句的（通常以大写字母开头、以标点结尾）
-        const ex = lines.find(l => /^[A-Z"“].*[.!?"”]$/.test(l));
-        if (ex) exHtml = '“' + esc(ex) + '”';
+        defHtml = '<span class="miss-text">（未收录，可尝试联网补充）</span>';
       }
 
       html +=
-        '<label class="word-row' + (mastered ? ' mastered' : '') + '" data-key="' + esc(w.key) + '">' +
+        '<label class="word-row' + (mastered ? ' mastered' : '') + '" data-key="' + esc(w.key) + '" data-word="' + esc(w.word) + '">' +
           '<input type="checkbox" class="box"' + (mastered ? ' checked' : '') + '>' +
           '<span class="word-w">' + esc(w.word) + '</span>' +
           '<span class="word-p"' + (ph ? '' : ' hidden') + '>' + (ph ? '/' + esc(ph) + '/' : '') + '</span>' +
           '<span class="word-d">' + defHtml + '</span>' +
-          '<span class="word-ex">' + exHtml + '</span>' +
+          '<span class="word-ex"></span>' +
         '</label>';
     }
 
     listEl.innerHTML = html;
     updateProgress();
+
+    if (phoneticObserver) {
+      listEl.querySelectorAll('.word-row').forEach(el => {
+        const key = el.dataset.key;
+        const word = el.dataset.word;
+        if (phoneticCache[key] !== undefined) return;
+        if (lookup(word)?.phonetic) return;
+        phoneticObserver.observe(el);
+      });
+    }
   }
 
   function updateProgress() {
@@ -496,7 +599,7 @@
   function getPool(scope) {
     let pool = state.words.filter(w => {
       const d = lookup(w.word);
-      return d && d.translation;   // 必须有中文释义才能出题
+      return d && d.translation;
     });
     if (scope === 'unmastered') pool = pool.filter(w => !state.mastered.has(w.key));
     else if (scope === 'mastered') pool = pool.filter(w => state.mastered.has(w.key));
@@ -543,6 +646,8 @@
     quiz.answered = false;
     updateQuizProgress();
     focusQuizInput();
+
+    if (phoneticCache[q.key] === undefined && !data.phonetic) enqueuePhonetic(q.word);
   }
 
   function focusQuizInput() {
@@ -569,13 +674,6 @@
     return full.split(/[\/,;]/).map(s => s.trim()).filter(Boolean).includes(a);
   }
 
-  function feedbackExample(data) {
-    if (!data.definition) return '';
-    const lines = data.definition.split(/\\n|\n/).map(s => s.trim()).filter(Boolean);
-    const ex = lines.find(l => /^[A-Z"“].*[.!?"”]$/.test(l));
-    return ex ? '<span class="example">“' + esc(ex) + '”</span>' : '';
-  }
-
   function submitAnswer() {
     if (!quiz.running) return;
     if (quiz.answered) { nextQuestion(); return; }
@@ -585,6 +683,7 @@
 
     const q = quiz.questions[quiz.index];
     const data = currentDef(q);
+    const ph = data.phonetic || phoneticCache[q.key] || '';
     quiz.answered = true;
     inputEl.disabled = true;
     const fb = document.getElementById('quizFeedback');
@@ -592,9 +691,7 @@
     if (checkAnswer(raw, q.word)) {
       quiz.correct++;
       fb.className = 'quiz-feedback ok';
-      fb.innerHTML = '✓ 正确' +
-        (data.phonetic ? '<span class="phon">/' + esc(data.phonetic) + '/</span>' : '') +
-        feedbackExample(data);
+      fb.innerHTML = '✓ 正确' + (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '');
       document.getElementById('quizSubmit').textContent = '下一题';
       updateQuizProgress();
       nextTimer = setTimeout(nextQuestion, 800);
@@ -602,8 +699,7 @@
       quiz.wrong.push(q);
       fb.className = 'quiz-feedback err';
       fb.innerHTML = '✗ 正确答案：<span class="answer">' + esc(q.word) + '</span>' +
-        (data.phonetic ? '<span class="phon">/' + esc(data.phonetic) + '/</span>' : '') +
-        feedbackExample(data);
+        (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '');
       document.getElementById('quizSubmit').textContent = '下一题';
       updateQuizProgress();
       document.getElementById('quizSubmit').focus();
@@ -623,14 +719,14 @@
     if (quiz.answered) { nextQuestion(); return; }
     const q = quiz.questions[quiz.index];
     const data = currentDef(q);
+    const ph = data.phonetic || phoneticCache[q.key] || '';
     quiz.answered = true;
     quiz.wrong.push(q);
     document.getElementById('quizInput').disabled = true;
     const fb = document.getElementById('quizFeedback');
     fb.className = 'quiz-feedback err';
     fb.innerHTML = '已跳过 · 正确答案：<span class="answer">' + esc(q.word) + '</span>' +
-      (data.phonetic ? '<span class="phon">/' + esc(data.phonetic) + '/</span>' : '') +
-      feedbackExample(data);
+      (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '');
     document.getElementById('quizSubmit').textContent = '下一题';
     updateQuizProgress();
     document.getElementById('quizSubmit').focus();
@@ -661,7 +757,7 @@
       html += '<div class="result-wrong"><h3>错题回顾</h3><ul>' +
         wrong.map(w => {
           const data = currentDef(w);
-          const ph = data.phonetic || '';
+          const ph = data.phonetic || phoneticCache[w.key] || '';
           return '<li><b>' + esc(w.word) + '</b>' +
             (ph ? '<span class="rp">/' + esc(ph) + '/</span>' : '') +
             '<span>' + esc(data.translation || '') + '</span></li>';
@@ -704,7 +800,6 @@
      启动
      ========================================================= */
   async function init() {
-    // 先加载 ECDICT 词库
     try {
       await loadDict();
     } catch (err) {
@@ -716,7 +811,6 @@
       return;
     }
 
-    // 再加载单词表
     for (const name of SOURCES) {
       try {
         const res = await fetch(name, { cache: 'no-store' });
@@ -784,10 +878,11 @@
     if (!quiz.running) return;
     const q = quiz.questions[quiz.index];
     const data = currentDef(q);
+    const ph = data.phonetic || phoneticCache[q.key] || '';
     const letters = q.word.replace(/[^A-Za-z]/g, '');
     document.getElementById('quizHint').textContent =
       '首字母 ' + q.word.charAt(0).toUpperCase() + ' · 共 ' + letters.length + ' 个字母' +
-      (data.phonetic ? ' · /' + data.phonetic + '/' : '');
+      (ph ? ' · /' + ph + '/' : '');
   });
 
   document.getElementById('quizSkip').addEventListener('click', skipQuestion);
