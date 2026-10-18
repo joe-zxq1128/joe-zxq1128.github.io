@@ -21,9 +21,10 @@
     font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
   }
 
-  /* 开关：隐藏释义 / 音标 */
+  /* 开关：隐藏释义 / 音标 / 例句 */
   body.hide-def .word-d { display: none; }
   body.hide-phonetic .word-p { display: none; }
+  body.hide-example .word-ex { display: none; }
 
   /* 顶部栏 */
   .topbar {
@@ -74,18 +75,18 @@
     gap: 12px; min-height: 42px; flex-wrap: wrap;
   }
   .header-right {
-    display: flex; align-items: center; gap: 12px;
+    display: flex; align-items: center; gap: 10px;
     font-size: 12px; font-weight: 400; color: var(--muted);
     flex-wrap: wrap;
   }
   .panel-body { padding: 12px 15px 16px; }
 
-  .progress-wrap { width: 100px; height: 5px; border-radius: 3px; background: #e8e8e8; overflow: hidden; }
+  .progress-wrap { width: 90px; height: 5px; border-radius: 3px; background: #e8e8e8; overflow: hidden; }
   .progress-wrap > i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--positive); transition: width .3s ease; }
 
   /* 胶囊式开关 */
   .toggle-wrap {
-    display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; gap: 5px;
     font-size: 12px; color: var(--muted);
     cursor: pointer; user-select: none;
     padding: 2px 0;
@@ -93,8 +94,8 @@
   .switch {
     position: relative;
     display: inline-block;
-    width: 32px;
-    height: 18px;
+    width: 30px;
+    height: 17px;
     flex: none;
   }
   .switch input {
@@ -109,14 +110,14 @@
     position: absolute;
     inset: 0;
     background: #ccc;
-    border-radius: 18px;
+    border-radius: 17px;
     transition: background .2s;
     pointer-events: none;
   }
   .switch .slider::before {
     content: '';
     position: absolute;
-    width: 14px; height: 14px;
+    width: 13px; height: 13px;
     left: 2px; top: 2px;
     background: #fff;
     border-radius: 50%;
@@ -124,7 +125,7 @@
     box-shadow: 0 1px 2px rgba(0,0,0,.15);
   }
   .switch input:checked + .slider { background: var(--primary); }
-  .switch input:checked + .slider::before { transform: translateX(14px); }
+  .switch input:checked + .slider::before { transform: translateX(13px); }
   .switch input:focus-visible + .slider { box-shadow: 0 0 0 3px rgba(33,133,208,.25); }
 
   .btn { font-family: inherit; font-size: 14px; padding: 9px 18px; border-radius: 4px; border: 1px solid transparent; cursor: pointer; }
@@ -137,7 +138,9 @@
   .btn-tiny {
     font-size: 12px; padding: 4px 10px; border-radius: 4px;
     border: 1px solid #d0d5dd; background: #fff; color: var(--muted);
-    cursor: pointer; font-family: inherit;
+    cursor: pointer; font-family: inherit; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+    white-space: nowrap;
   }
   .btn-tiny:hover { border-color: var(--primary); color: var(--primary); }
 
@@ -157,18 +160,22 @@
     align-items: start;
     padding: 9px 6px;
     border-bottom: 1px solid var(--border-light);
-    cursor: pointer;
     transition: background .12s;
   }
   .word-row:hover { background: #f5f9ff; }
 
-  .word-row .box { grid-column: 1; grid-row: 1; margin-top: 2px; }
+  .word-row .box {
+    grid-column: 1; grid-row: 1;
+    margin-top: 2px;
+    cursor: pointer;
+  }
 
   .word-row .word-w {
     grid-column: 2; grid-row: 1;
     font-weight: 600; font-size: 14px; color: #333;
     word-break: break-word;
     line-height: 1.5;
+    cursor: default;
   }
 
   .word-row .word-p {
@@ -178,6 +185,7 @@
     word-break: break-word;
     line-height: 1.5;
     padding-top: 1px;
+    cursor: default;
   }
 
   .word-row .word-d {
@@ -186,6 +194,7 @@
     word-break: break-word;
     line-height: 1.6;
     white-space: pre-wrap;
+    cursor: default;
   }
 
   /* 例句行：第 2 列开始，跨到末尾 */
@@ -196,6 +205,7 @@
     line-height: 1.6;
     margin-top: 3px;
     font-style: italic;
+    cursor: default;
   }
   .word-row .word-ex:empty { display: none; }
 
@@ -213,6 +223,7 @@
     flex: none; margin: 0; border: 1.5px solid #b8c0cc; border-radius: 3px;
     background: #fff; cursor: pointer; position: relative;
   }
+  .box:hover { border-color: var(--primary); }
   .box:checked { background: var(--primary); border-color: var(--primary); }
   .box:checked::after {
     content: ''; position: absolute; left: 4px; top: .5px; width: 4px; height: 8px;
@@ -280,13 +291,13 @@
     .side-item { width: auto; height: 44px; padding: 0 16px; border-left: none; border-bottom: 3px solid transparent; flex: none; }
     .side-item.active { border-left-color: transparent; border-bottom-color: var(--primary); background: transparent; }
     .main { margin-left: 0; padding: 112px 14px 50px; }
-    .topbar-search { width: 150px; }
+    .topbar-search { width: 140px; }
     .header-right { gap: 8px; }
-    .progress-wrap { width: 60px; }
+    .progress-wrap { width: 50px; }
     .panel-body { padding: 10px 12px 14px; }
 
     /* 移动端 4 列收窄 */
-    .word-row { grid-template-columns: 15px 90px 105px 1fr; column-gap: 6px; padding: 8px 4px; }
+    .word-row { grid-template-columns: 15px 85px 100px 1fr; column-gap: 6px; padding: 8px 4px; }
     .word-row .word-w { font-size: 13px; }
     .word-row .word-p { font-size: 11.5px; }
     .word-row .word-d { font-size: 12px; }
@@ -327,11 +338,19 @@
               <span>释义</span>
               <span class="switch"><input type="checkbox" id="toggleDef" checked><span class="slider"></span></span>
             </label>
-            <label class="toggle-wrap" title="联网获取音标和例句">
+            <label class="toggle-wrap" title="联网获取音标">
               <span>音标</span>
               <span class="switch"><input type="checkbox" id="togglePhonetic" checked><span class="slider"></span></span>
             </label>
-            <button class="btn-tiny" id="clearCache" title="清空音标和例句缓存">清空缓存</button>
+            <label class="toggle-wrap" title="联网获取例句">
+              <span>例句</span>
+              <span class="switch"><input type="checkbox" id="toggleExample" checked><span class="slider"></span></span>
+            </label>
+            <a class="btn-tiny" id="updateWordlist" href="https://github.com/joe-zxq1128/joe-zxq1128.github.io/edit/main/wordlist/wordlist.txt" target="_blank" rel="noopener" title="前往 GitHub 编辑 wordlist.txt">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              更新生词表
+            </a>
+            <button class="btn-tiny" id="clearCache" title="清空音标与例句缓存">清空缓存</button>
             <button class="btn-tiny" id="reset" title="清除掌握标记">重置</button>
           </div>
         </div>
@@ -359,7 +378,7 @@
           <p class="quiz-note" id="quizNote"></p>
           <button id="quizStart" class="btn btn-primary btn-block">开始复盘</button>
           <p class="quiz-note" style="margin-top:14px">
-            释义来源：ECDICT 2 万词条扩展词库，本地直接读取。音标与例句由 dictionaryapi.dev 一次请求同时获取，结果缓存在本地，清空缓存后可重新拉取。
+            释义：ECDICT 2 万词条扩展词库（本地）。音标：dictionaryapi.dev。例句：Wiktionary REST API，例句覆盖率明显高于 dictionaryapi.dev。音标和例句分别缓存，可单独开关。
           </p>
         </div>
       </div>
@@ -399,14 +418,17 @@
   /* =========================================================
      配置
      ========================================================= */
-  const MASTER_KEY          = 'words-tool-mastered-v11';
-  const WORD_DATA_CACHE_KEY = 'words-tool-word-data-v1';
-  const SHOW_DEF_KEY        = 'words-tool-show-def-v2';
-  const AUTO_PHONETIC_KEY   = 'words-tool-auto-phonetic-v2';
+  const MASTER_KEY          = 'words-tool-mastered-v12';
+  const PHONETIC_CACHE_KEY  = 'words-tool-phonetic-v4';
+  const EXAMPLE_CACHE_KEY   = 'words-tool-example-v4';
+  const SHOW_DEF_KEY        = 'words-tool-show-def-v3';
+  const AUTO_PHONETIC_KEY   = 'words-tool-auto-phonetic-v3';
+  const AUTO_EXAMPLE_KEY    = 'words-tool-auto-example-v1';
   const SOURCES = ['wordlist.txt'];
 
   const ECDICT_URL = 'https://raw.githubusercontent.com/FluentRead/FluentRead/refs/heads/main/assets/optional/ecdict-core-full.json';
-  const WORD_API   = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
+  const PHONETIC_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
+  const WIKTIONARY_API = 'https://en.wiktionary.org/api/rest_v1/page/definition/';
   const FETCH_TIMEOUT = 8000;
 
   /* =========================================================
@@ -427,18 +449,12 @@
   let nextTimer = null;
   let dict = new Map();
 
-  // wordDataCache: { [wordKey]: { phonetic: '', examples: [''], error: false } }
-  let wordDataCache = loadWordDataCache();
+  let phoneticCache = loadCache(PHONETIC_CACHE_KEY);
+  let exampleCache  = loadCache(EXAMPLE_CACHE_KEY);
 
-  let showDef = (function () {
-    try { return localStorage.getItem(SHOW_DEF_KEY) !== '0'; }
-    catch (e) { return true; }
-  })();
-
-  let autoPhonetic = (function () {
-    try { return localStorage.getItem(AUTO_PHONETIC_KEY) !== '0'; }
-    catch (e) { return true; }
-  })();
+  let showDef = getBoolPref(SHOW_DEF_KEY, true);
+  let autoPhonetic = getBoolPref(AUTO_PHONETIC_KEY, true);
+  let autoExample  = getBoolPref(AUTO_EXAMPLE_KEY, true);
 
   /* =========================================================
      工具
@@ -466,27 +482,30 @@
     return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
   }
 
+  function loadCache(key) {
+    try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : {}; }
+    catch (e) { return {}; }
+  }
+  function saveCache(key, obj) {
+    try { localStorage.setItem(key, JSON.stringify(obj)); } catch (e) {}
+  }
+
+  function getBoolPref(key, fallback) {
+    try {
+      const v = localStorage.getItem(key);
+      return v === null ? fallback : v === '1';
+    } catch (e) { return fallback; }
+  }
+  function setBoolPref(key, val) {
+    try { localStorage.setItem(key, val ? '1' : '0'); } catch (e) {}
+  }
+
   function loadMastered() {
     try { const r = localStorage.getItem(MASTER_KEY); return new Set(r ? JSON.parse(r) : []); }
     catch (e) { return new Set(); }
   }
   function saveMastered() {
     try { localStorage.setItem(MASTER_KEY, JSON.stringify([...state.mastered])); } catch (e) {}
-  }
-
-  function loadWordDataCache() {
-    try { const r = localStorage.getItem(WORD_DATA_CACHE_KEY); return r ? JSON.parse(r) : {}; }
-    catch (e) { return {}; }
-  }
-  function saveWordDataCache() {
-    try { localStorage.setItem(WORD_DATA_CACHE_KEY, JSON.stringify(wordDataCache)); } catch (e) {}
-  }
-
-  function saveShowDef() {
-    try { localStorage.setItem(SHOW_DEF_KEY, showDef ? '1' : '0'); } catch (e) {}
-  }
-  function saveAutoPhonetic() {
-    try { localStorage.setItem(AUTO_PHONETIC_KEY, autoPhonetic ? '1' : '0'); } catch (e) {}
   }
 
   /* =========================================================
@@ -515,119 +534,189 @@
   }
 
   /* =========================================================
-     单词数据：dictionaryapi.dev 一次请求拿音标 + 例句
+     音标：dictionaryapi.dev
      ========================================================= */
-  const dataQueue = [];
-  const dataPending = new Set();
-  let dataRunning = 0;
-  const DATA_CONCURRENCY = 3;
+  const phoneticQueue = [];
+  const phoneticPending = new Set();
+  let phoneticRunning = 0;
+  const PHONETIC_CONCURRENCY = 3;
 
-  function enqueueWordData(word) {
+  function enqueuePhonetic(word) {
     if (!autoPhonetic) return;
     const key = word.toLowerCase();
-    if (wordDataCache[key] !== undefined) return;
+    if (phoneticCache[key] !== undefined) return;
     if (!/^[A-Za-z][A-Za-z'’\-]*$/.test(word)) return;
-    if (dataPending.has(key)) return;
-    if (dataQueue.some(j => j.key === key)) return;
-    dataQueue.push({ key, word });
-    pumpWordData();
+    if (phoneticPending.has(key)) return;
+    if (phoneticQueue.some(j => j.key === key)) return;
+    phoneticQueue.push({ key, word });
+    pumpPhonetic();
   }
 
-  function pumpWordData() {
-    while (autoPhonetic && dataRunning < DATA_CONCURRENCY && dataQueue.length) {
-      const job = dataQueue.shift();
-      dataPending.add(job.key);
-      dataRunning++;
-      fetchWordData(job.word)
-        .then(data => {
-          wordDataCache[job.key] = data;
-          saveWordDataCache();
-          updateWordDataDom(job.key);
+  function pumpPhonetic() {
+    while (autoPhonetic && phoneticRunning < PHONETIC_CONCURRENCY && phoneticQueue.length) {
+      const job = phoneticQueue.shift();
+      phoneticPending.add(job.key);
+      phoneticRunning++;
+      fetchPhonetic(job.word)
+        .then(ph => {
+          phoneticCache[job.key] = ph || '';
+          saveCache(PHONETIC_CACHE_KEY, phoneticCache);
+          updatePhoneticDom(job.key);
         })
         .catch(() => {
-          // 失败也缓存，避免反复请求
-          wordDataCache[job.key] = { phonetic: '', examples: [], error: true };
-          saveWordDataCache();
+          phoneticCache[job.key] = '';
+          saveCache(PHONETIC_CACHE_KEY, phoneticCache);
         })
         .finally(() => {
-          dataPending.delete(job.key);
-          dataRunning--;
-          pumpWordData();
+          phoneticPending.delete(job.key);
+          phoneticRunning--;
+          pumpPhonetic();
         });
     }
   }
 
-  async function fetchWordData(word) {
-    const url = WORD_API + encodeURIComponent(word);
+  async function fetchPhonetic(word) {
+    const url = PHONETIC_API + encodeURIComponent(word);
     const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    if (!Array.isArray(data) || !data.length) {
-      return { phonetic: '', examples: [], error: false };
-    }
-
-    let phonetic = '';
-    const examples = [];
-
+    if (!Array.isArray(data) || !data.length) return '';
     for (const entry of data) {
-      if (!phonetic) {
-        if (entry.phonetic) {
-          phonetic = String(entry.phonetic).replace(/[\/\[\]]/g, '').trim();
-        }
-        if (!phonetic && Array.isArray(entry.phonetics)) {
-          for (const p of entry.phonetics) {
-            if (p && p.text) {
-              phonetic = String(p.text).replace(/[\/\[\]]/g, '').trim();
-              if (phonetic) break;
-            }
-          }
-        }
-      }
-      if (Array.isArray(entry.meanings)) {
-        for (const meaning of entry.meanings) {
-          if (!Array.isArray(meaning.definitions)) continue;
-          for (const def of meaning.definitions) {
-            if (def && def.example && examples.length < 2) {
-              examples.push(String(def.example).trim());
-            }
-          }
+      if (entry.phonetic) return String(entry.phonetic).replace(/[\/\[\]]/g, '').trim();
+      if (Array.isArray(entry.phonetics)) {
+        for (const p of entry.phonetics) {
+          if (p && p.text) return String(p.text).replace(/[\/\[\]]/g, '').trim();
         }
       }
     }
-
-    return { phonetic, examples, error: false };
+    return '';
   }
 
-  function updateWordDataDom(key) {
-    const d = wordDataCache[key];
-    if (!d) return;
-    let rows;
-    try { rows = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"]'); }
-    catch (e) { rows = []; }
-    rows.forEach(row => {
-      // 音标
-      const pEl = row.querySelector('.word-p');
-      if (pEl && d.phonetic) {
-        pEl.textContent = '/' + d.phonetic + '/';
-      }
-      // 例句
-      const exEl = row.querySelector('.word-ex');
-      if (exEl && Array.isArray(d.examples) && d.examples.length) {
-        exEl.innerHTML = d.examples.map(ex => '“' + esc(ex) + '”').join('<br>');
-      }
+  function updatePhoneticDom(key) {
+    const ph = phoneticCache[key];
+    if (!ph) return;
+    let nodes;
+    try { nodes = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"] .word-p'); }
+    catch (e) { nodes = []; }
+    nodes.forEach(el => {
+      el.textContent = '/' + ph + '/';
     });
   }
 
-  const dataObserver = ('IntersectionObserver' in window)
+  /* =========================================================
+     例句：Wiktionary REST API
+     ========================================================= */
+  const exampleQueue = [];
+  const examplePending = new Set();
+  let exampleRunning = 0;
+  const EXAMPLE_CONCURRENCY = 2;
+
+  function enqueueExample(word) {
+    if (!autoExample) return;
+    const key = word.toLowerCase();
+    if (exampleCache[key] !== undefined) return;
+    if (!/^[A-Za-z][A-Za-z'’\-]*$/.test(word)) return;
+    if (examplePending.has(key)) return;
+    if (exampleQueue.some(j => j.key === key)) return;
+    exampleQueue.push({ key, word });
+    pumpExample();
+  }
+
+  function pumpExample() {
+    while (autoExample && exampleRunning < EXAMPLE_CONCURRENCY && exampleQueue.length) {
+      const job = exampleQueue.shift();
+      examplePending.add(job.key);
+      exampleRunning++;
+      fetchExamples(job.word)
+        .then(examples => {
+          exampleCache[job.key] = examples || [];
+          saveCache(EXAMPLE_CACHE_KEY, exampleCache);
+          updateExampleDom(job.key);
+        })
+        .catch(() => {
+          exampleCache[job.key] = [];
+          saveCache(EXAMPLE_CACHE_KEY, exampleCache);
+        })
+        .finally(() => {
+          examplePending.delete(job.key);
+          exampleRunning--;
+          pumpExample();
+        });
+    }
+  }
+
+  async function fetchExamples(word) {
+    const url = WIKTIONARY_API + encodeURIComponent(word);
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    return parseWiktionaryExamples(data);
+  }
+
+  function parseWiktionaryExamples(data) {
+    const out = [];
+    const en = data && data.en;
+    if (!Array.isArray(en)) return out;
+
+    for (const entry of en) {
+      if (!Array.isArray(entry.definitions)) continue;
+      for (const def of entry.definitions) {
+        // 优先纯文本 examples
+        if (Array.isArray(def.examples)) {
+          for (const ex of def.examples) {
+            if (typeof ex === 'string') {
+              const t = ex.trim();
+              if (t.length > 10 && t.length < 240 && out.length < 2 && !out.includes(t)) {
+                out.push(t);
+              }
+            }
+          }
+        }
+        // 回退到 parsedExamples（去 HTML 标签）
+        if (out.length < 2 && Array.isArray(def.parsedExamples)) {
+          for (const pe of def.parsedExamples) {
+            if (pe && pe.example) {
+              const t = String(pe.example).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              if (t.length > 10 && t.length < 240 && out.length < 2 && !out.includes(t)) {
+                out.push(t);
+              }
+            }
+          }
+        }
+        if (out.length >= 2) break;
+      }
+      if (out.length >= 2) break;
+    }
+    return out;
+  }
+
+  function updateExampleDom(key) {
+    const exs = exampleCache[key];
+    if (!Array.isArray(exs) || !exs.length) return;
+    let nodes;
+    try { nodes = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"] .word-ex'); }
+    catch (e) { nodes = []; }
+    nodes.forEach(el => {
+      el.innerHTML = exs.map(ex => '“' + esc(ex) + '”').join('<br>');
+    });
+  }
+
+  /* =========================================================
+     视口触发
+     ========================================================= */
+  const io = ('IntersectionObserver' in window)
     ? new IntersectionObserver(entries => {
         entries.forEach(e => {
           if (!e.isIntersecting) return;
-          dataObserver.unobserve(e.target);
-          if (!autoPhonetic) return;
+          io.unobserve(e.target);
           const key = e.target.dataset.key;
           const word = e.target.dataset.word;
-          if (wordDataCache[key] !== undefined) return;
-          enqueueWordData(word);
+          if (autoPhonetic && phoneticCache[key] === undefined && !lookup(word)?.phonetic) {
+            enqueuePhonetic(word);
+          }
+          if (autoExample && exampleCache[key] === undefined) {
+            enqueueExample(word);
+          }
         });
       }, { rootMargin: '260px' })
     : null;
@@ -681,11 +770,9 @@
 
       const mastered = state.mastered.has(w.key);
       const dictData = lookup(w.word);
-      const fetched = wordDataCache[w.key];
-
-      const ph = (dictData && dictData.phonetic) || (fetched && fetched.phonetic) || '';
+      const ph = (dictData && dictData.phonetic) || phoneticCache[w.key] || '';
       const trans = dictData && dictData.translation ? dictData.translation : '';
-      const examples = (fetched && Array.isArray(fetched.examples)) ? fetched.examples : [];
+      const exs = Array.isArray(exampleCache[w.key]) ? exampleCache[w.key] : [];
 
       let defHtml;
       if (trans) {
@@ -696,28 +783,29 @@
         defHtml = '<span class="miss-text">（未收录）</span>';
       }
 
-      const exHtml = examples.length
-        ? examples.map(ex => '“' + esc(ex) + '”').join('<br>')
+      const exHtml = exs.length
+        ? exs.map(ex => '“' + esc(ex) + '”').join('<br>')
         : '';
 
       html +=
-        '<label class="word-row' + (mastered ? ' mastered' : '') + '" data-key="' + esc(w.key) + '" data-word="' + esc(w.word) + '">' +
+        '<div class="word-row' + (mastered ? ' mastered' : '') + '" data-key="' + esc(w.key) + '" data-word="' + esc(w.word) + '">' +
           '<input type="checkbox" class="box"' + (mastered ? ' checked' : '') + '>' +
           '<span class="word-w">' + esc(w.word) + '</span>' +
           '<span class="word-p">' + (ph ? '/' + esc(ph) + '/' : '') + '</span>' +
           '<span class="word-d">' + defHtml + '</span>' +
           '<span class="word-ex">' + exHtml + '</span>' +
-        '</label>';
+        '</div>';
     }
 
     listEl.innerHTML = html;
     updateProgress();
 
-    if (dataObserver && autoPhonetic) {
+    if (io) {
       listEl.querySelectorAll('.word-row').forEach(el => {
         const key = el.dataset.key;
-        if (wordDataCache[key] !== undefined) return;
-        dataObserver.observe(el);
+        const needP = autoPhonetic && phoneticCache[key] === undefined && !lookup(el.dataset.word)?.phonetic;
+        const needE = autoExample && exampleCache[key] === undefined;
+        if (needP || needE) io.observe(el);
       });
     }
   }
@@ -804,7 +892,6 @@
   }
 
   function currentDictData(q) { return lookup(q.word) || {}; }
-  function currentFetched(q) { return wordDataCache[q.key] || {}; }
 
   function showQuestion() {
     const q = quiz.questions[quiz.index];
@@ -820,7 +907,8 @@
     updateQuizProgress();
     focusQuizInput();
 
-    if (autoPhonetic && wordDataCache[q.key] === undefined) enqueueWordData(q.word);
+    if (autoPhonetic && phoneticCache[q.key] === undefined && !data.phonetic) enqueuePhonetic(q.word);
+    if (autoExample && exampleCache[q.key] === undefined) enqueueExample(q.word);
   }
 
   function focusQuizInput() {
@@ -849,12 +937,11 @@
 
   function buildFeedbackHtml(q, prefixHtml) {
     const dictData = currentDictData(q);
-    const fetched = currentFetched(q);
-    const ph = dictData.phonetic || fetched.phonetic || '';
-    const ex = (fetched.examples && fetched.examples[0]) ? fetched.examples[0] : '';
+    const ph = dictData.phonetic || phoneticCache[q.key] || '';
+    const exs = Array.isArray(exampleCache[q.key]) ? exampleCache[q.key] : [];
     return prefixHtml +
       (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '') +
-      (ex ? '<span class="example">“' + esc(ex) + '”</span>' : '');
+      (exs.length ? '<span class="example">“' + esc(exs[0]) + '”</span>' : '');
   }
 
   function submitAnswer() {
@@ -936,12 +1023,11 @@
       html += '<div class="result-wrong"><h3>错题回顾</h3><ul>' +
         wrong.map(w => {
           const dictData = lookup(w.word) || {};
-          const fetched = wordDataCache[w.key] || {};
-          const ph = dictData.phonetic || fetched.phonetic || '';
-          const ex = (fetched.examples && fetched.examples[0]) ? fetched.examples[0] : '';
+          const ph = dictData.phonetic || phoneticCache[w.key] || '';
+          const exs = Array.isArray(exampleCache[w.key]) ? exampleCache[w.key] : [];
           return '<li><b>' + esc(w.word) + '</b>' +
             (ph ? '<span class="rp">/' + esc(ph) + '/</span>' : '') +
-            '<span>' + esc(dictData.translation || '') + (ex ? ' · “' + esc(ex) + '”' : '') + '</span></li>';
+            '<span>' + esc(dictData.translation || '') + (exs.length ? ' · “' + esc(exs[0]) + '”' : '') + '</span></li>';
         }).join('') +
         '</ul></div>';
       if (unmarked) html += '<p class="quiz-note">已将 ' + unmarked + ' 个答错的单词标记为「未掌握」。</p>';
@@ -1028,12 +1114,12 @@
   }
   document.getElementById('toggleDef').addEventListener('change', e => {
     showDef = e.target.checked;
-    saveShowDef();
+    setBoolPref(SHOW_DEF_KEY, showDef);
     syncDefToggle();
   });
 
   /* =========================================================
-     胶囊开关：音标（同时控制例句获取）
+     胶囊开关：音标
      ========================================================= */
   function syncPhoneticToggle() {
     document.body.classList.toggle('hide-phonetic', !autoPhonetic);
@@ -1041,17 +1127,39 @@
   }
   document.getElementById('togglePhonetic').addEventListener('change', e => {
     autoPhonetic = e.target.checked;
-    saveAutoPhonetic();
+    setBoolPref(AUTO_PHONETIC_KEY, autoPhonetic);
     syncPhoneticToggle();
     if (autoPhonetic) {
       document.querySelectorAll('#list .word-row').forEach(el => {
         const key = el.dataset.key;
-        if (wordDataCache[key] !== undefined) return;
-        if (dataObserver) dataObserver.observe(el);
-        else enqueueWordData(el.dataset.word);
+        if (phoneticCache[key] !== undefined) return;
+        if (lookup(el.dataset.word)?.phonetic) return;
+        if (io) io.observe(el); else enqueuePhonetic(el.dataset.word);
       });
     } else {
-      dataQueue.length = 0;
+      phoneticQueue.length = 0;
+    }
+  });
+
+  /* =========================================================
+     胶囊开关：例句
+     ========================================================= */
+  function syncExampleToggle() {
+    document.body.classList.toggle('hide-example', !autoExample);
+    document.getElementById('toggleExample').checked = autoExample;
+  }
+  document.getElementById('toggleExample').addEventListener('change', e => {
+    autoExample = e.target.checked;
+    setBoolPref(AUTO_EXAMPLE_KEY, autoExample);
+    syncExampleToggle();
+    if (autoExample) {
+      document.querySelectorAll('#list .word-row').forEach(el => {
+        const key = el.dataset.key;
+        if (exampleCache[key] !== undefined) return;
+        if (io) io.observe(el); else enqueueExample(el.dataset.word);
+      });
+    } else {
+      exampleQueue.length = 0;
     }
   });
 
@@ -1059,24 +1167,29 @@
      清空缓存（音标 + 例句）
      ========================================================= */
   document.getElementById('clearCache').addEventListener('click', () => {
-    const count = Object.keys(wordDataCache).length;
-    if (!count) {
-      alert('当前没有已缓存的音标 / 例句。');
+    const phCount = Object.keys(phoneticCache).length;
+    const exCount = Object.keys(exampleCache).length;
+    if (!phCount && !exCount) {
+      alert('当前没有已缓存的音标或例句。');
       return;
     }
-    if (!confirm('将清空 ' + count + ' 条音标与例句缓存，之后浏览时会重新联网获取。是否继续？')) return;
+    if (!confirm('将清空 ' + phCount + ' 条音标和 ' + exCount + ' 条例句缓存，之后浏览时会重新联网获取。是否继续？')) return;
 
-    wordDataCache = {};
-    saveWordDataCache();
-    dataQueue.length = 0;
-    dataPending.clear();
+    phoneticCache = {};
+    exampleCache = {};
+    saveCache(PHONETIC_CACHE_KEY, phoneticCache);
+    saveCache(EXAMPLE_CACHE_KEY, exampleCache);
+    phoneticQueue.length = 0; phoneticPending.clear();
+    exampleQueue.length = 0; examplePending.clear();
 
     renderBrowse();
 
-    if (autoPhonetic) {
+    if (io) {
       document.querySelectorAll('#list .word-row').forEach(el => {
-        if (dataObserver) dataObserver.observe(el);
-        else enqueueWordData(el.dataset.word);
+        const key = el.dataset.key;
+        const needP = autoPhonetic && phoneticCache[key] === undefined && !lookup(el.dataset.word)?.phonetic;
+        const needE = autoExample && exampleCache[key] === undefined;
+        if (needP || needE) io.observe(el);
       });
     }
   });
@@ -1090,6 +1203,7 @@
     setView(btn.dataset.view);
   });
 
+  // 只有勾选框本身的 change 事件才更新掌握状态
   const listEl = document.getElementById('list');
   listEl.addEventListener('change', e => {
     const box = e.target;
@@ -1121,8 +1235,7 @@
     if (!quiz.running) return;
     const q = quiz.questions[quiz.index];
     const dictData = currentDictData(q);
-    const fetched = currentFetched(q);
-    const ph = dictData.phonetic || fetched.phonetic || '';
+    const ph = dictData.phonetic || phoneticCache[q.key] || '';
     const letters = q.word.replace(/[^A-Za-z]/g, '');
     document.getElementById('quizHint').textContent =
       '首字母 ' + q.word.charAt(0).toUpperCase() + ' · 共 ' + letters.length + ' 个字母' +
@@ -1150,6 +1263,7 @@
      ========================================================= */
   syncDefToggle();
   syncPhoneticToggle();
+  syncExampleToggle();
   updateQuizNote();
   init();
 })();
