@@ -1085,6 +1085,9 @@ function renderResult(data, prediction) {
 
 /* ============================================================
    10. 预测模型
+   ------------------------------------------------------------
+   ★ 预测区间从「今天」开始往后一年，而不是从最后一场比赛开始。
+   如果最后一场比赛在今天之后（异常情况），则以最后一场为起点。
    ============================================================ */
 function predictFuture(records, username) {
   const n = records.length;
@@ -1092,6 +1095,8 @@ function predictFuture(records, username) {
 
   const lastR = records[n - 1].rating;
   const lastTs = records[n - 1].ts;
+  const todayTs = Math.floor(Date.now() / 1000);
+  const startTs = Math.max(todayTs, lastTs);   // 防止时间倒退
 
   const K = Math.min(40, n);
   const recent = records.slice(-K);
@@ -1120,8 +1125,10 @@ function predictFuture(records, username) {
   const weekSec = 7 * 86400;
   const matchesPerWeek = Math.max(0.3, 7 / avgIntervalDays);
 
+  // 第一个预测点 = 今天（或最后一场），rating 与当前 rating 相同
+  const preds = [{ ts: startTs, rating: lastR, isPrediction: true }];
+
   let cur = lastR;
-  const preds = [];
   for (let w = 1; w <= weeks; w++) {
     const decayFactor = Math.exp(-w / 40);
     const headroom = Math.max(0.2, 1 - cur / 4500);
@@ -1129,7 +1136,7 @@ function predictFuture(records, username) {
     const weekVol = volatility * Math.sqrt(matchesPerWeek) * 0.8;
     const noise = gauss() * weekVol;
     cur = Math.max(50, cur + trendDelta + noise);
-    preds.push({ ts: lastTs + w * weekSec, rating: Math.round(cur), isPrediction: true });
+    preds.push({ ts: startTs + w * weekSec, rating: Math.round(cur), isPrediction: true });
   }
   return preds;
 }
@@ -1427,10 +1434,11 @@ function drawChart() {
     ctx.fillRect(padL, yOf(hi), plotW, yOf(lo) - yOf(hi));
   }
 
+  /* 预测区间浅色背景：从预测起点（今天）到最后一个预测点 */
   if (PRED_PTS.length && ACTUAL_PTS.length) {
-    const startX = ACTUAL_PTS[ACTUAL_PTS.length - 1].x;
+    const startX = PRED_PTS[0].x;
     const endX = PRED_PTS[PRED_PTS.length - 1].x;
-    const band = bandOf(ACTUAL_PTS[ACTUAL_PTS.length - 1].rating);
+    const band = bandOf(PRED_PTS[0].rating);
     ctx.fillStyle = withAlpha(band.color, 0.045);
     ctx.fillRect(startX, padT, endX - startX, GEO.plotH);
   }
@@ -1517,9 +1525,7 @@ function drawChart() {
     ctx.fill();
   }
 
-  /* ============================================================
-     预测曲线：逐段绘制，每段使用终点 Rating 对应的段位色
-     ============================================================ */
+  /* 预测曲线：逐段绘制，每段用终点 Rating 对应的段位色 */
   if (PRED_PTS.length && ACTUAL_PTS.length) {
     const lastActual = ACTUAL_PTS[ACTUAL_PTS.length - 1];
 
