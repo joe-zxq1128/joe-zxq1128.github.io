@@ -6,3 +6,4 @@ confront
 exploit
 materialistic
 granted
+vow
