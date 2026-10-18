@@ -21,6 +21,11 @@
     font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
   }
 
+  /* 开关：隐藏释义 / 音标 */
+  body.hide-def .word-d,
+  body.hide-def .word-ex { display: none; }
+  body.hide-phonetic .word-p { display: none; }
+
   /* 顶部栏 */
   .topbar {
     position: fixed; top: 0; left: 0; right: 0; height: 50px;
@@ -69,11 +74,59 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 12px; min-height: 42px; flex-wrap: wrap;
   }
-  .header-right { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .header-right {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; font-weight: 400; color: var(--muted);
+    flex-wrap: wrap;
+  }
   .panel-body { padding: 12px 15px 16px; }
 
   .progress-wrap { width: 100px; height: 5px; border-radius: 3px; background: #e8e8e8; overflow: hidden; }
   .progress-wrap > i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--positive); transition: width .3s ease; }
+
+  /* 胶囊式开关 */
+  .toggle-wrap {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted);
+    cursor: pointer; user-select: none;
+    padding: 2px 0;
+  }
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+    flex: none;
+  }
+  .switch input {
+    position: absolute;
+    opacity: 0;
+    width: 100%; height: 100%;
+    margin: 0;
+    cursor: pointer;
+    z-index: 1;
+  }
+  .switch .slider {
+    position: absolute;
+    inset: 0;
+    background: #ccc;
+    border-radius: 18px;
+    transition: background .2s;
+    pointer-events: none;
+  }
+  .switch .slider::before {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    left: 2px; top: 2px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .2s;
+    box-shadow: 0 1px 2px rgba(0,0,0,.15);
+  }
+  .switch input:checked + .slider { background: var(--primary); }
+  .switch input:checked + .slider::before { transform: translateX(14px); }
+  .switch input:focus-visible + .slider { box-shadow: 0 0 0 3px rgba(33,133,208,.25); }
 
   .btn { font-family: inherit; font-size: 14px; padding: 9px 18px; border-radius: 4px; border: 1px solid transparent; cursor: pointer; }
   .btn-primary { background: var(--primary); color: #fff; }
@@ -82,9 +135,12 @@
   .btn-default { background: #fff; color: #555; border-color: #d0d5dd; }
   .btn-default:hover { border-color: var(--primary); color: var(--primary); }
   .btn-block { width: 100%; }
-  .btn-tiny { font-size: 12px; padding: 4px 10px; border-radius: 4px; border: 1px solid #d0d5dd; background: #fff; color: var(--muted); cursor: pointer; font-family: inherit; }
+  .btn-tiny {
+    font-size: 12px; padding: 4px 10px; border-radius: 4px;
+    border: 1px solid #d0d5dd; background: #fff; color: var(--muted);
+    cursor: pointer; font-family: inherit;
+  }
   .btn-tiny:hover { border-color: var(--primary); color: var(--primary); }
-  .btn-tiny.on { border-color: var(--primary); color: var(--primary); background: #eef6fd; }
 
   /* 单词行 */
   .letter-title {
@@ -104,7 +160,7 @@
     font-family: "Fira Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12.5px; color: #5b8def; flex: none; white-space: nowrap;
   }
-  .word-row .word-d { flex: 1; color: var(--muted); font-size: 13px; word-break: break-word; min-width: 120px; line-height: 1.6; }
+  .word-row .word-d { flex: 1; color: var(--muted); font-size: 13px; word-break: break-word; min-width: 120px; line-height: 1.6; white-space: pre-wrap; }
   .word-row .word-ex {
     flex-basis: 100%; padding-left: 24px; font-size: 12px; color: #aaa;
     line-height: 1.6; margin-top: 2px; font-style: italic;
@@ -113,7 +169,6 @@
   .word-row.mastered .word-w { text-decoration: line-through; text-decoration-thickness: 1.5px; color: #aaa; }
   .word-row.mastered .word-p, .word-row.mastered .word-d, .word-row.mastered .word-ex { color: #bbb; }
   .word-row .miss-text { color: #c77; font-size: 12px; font-style: italic; }
-  .word-row .source-badge { font-size: 11px; color: var(--muted-2); background: #f0f0f0; padding: 0 5px; border-radius: 3px; margin-left: 4px; font-style: normal; }
 
   .box {
     appearance: none; -webkit-appearance: none; width: 15px; height: 15px;
@@ -158,7 +213,6 @@
   .quiz-feedback.err { color: var(--negative); }
   .quiz-feedback .answer { color: var(--text); font-weight: 700; }
   .quiz-feedback .phon { font-family: ui-monospace, monospace; font-weight: 400; color: var(--muted); margin-left: 6px; font-size: 13px; }
-  .quiz-feedback .example { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 4px; font-style: italic; }
 
   .quiz-actions { display: flex; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-light); }
   .quiz-actions .btn { flex: 1; }
@@ -192,6 +246,8 @@
     .quiz-form { flex-direction: column; }
     .quiz-form .btn-primary { padding: 11px 20px; }
     .panel-body { padding: 10px 12px 14px; }
+    .header-right { gap: 8px; }
+    .progress-wrap { width: 60px; }
   }
 </style>
 </head>
@@ -223,7 +279,16 @@
           <div class="header-right">
             <span id="ptext">已掌握 0 / 0</span>
             <div class="progress-wrap"><i id="barfill"></i></div>
-            <button class="btn-tiny" id="reset">重置</button>
+            <label class="toggle-wrap" title="显示 / 隐藏释义">
+              <span>释义</span>
+              <span class="switch"><input type="checkbox" id="toggleDef" checked><span class="slider"></span></span>
+            </label>
+            <label class="toggle-wrap" title="联网获取音标">
+              <span>音标</span>
+              <span class="switch"><input type="checkbox" id="togglePhonetic" checked><span class="slider"></span></span>
+            </label>
+            <button class="btn-tiny" id="clearCache" title="清空已获取的音标缓存">清空缓存</button>
+            <button class="btn-tiny" id="reset" title="清除掌握标记">重置</button>
           </div>
         </div>
         <div class="panel-body"><div id="list"></div></div>
@@ -250,7 +315,7 @@
           <p class="quiz-note" id="quizNote"></p>
           <button id="quizStart" class="btn btn-primary btn-block">开始复盘</button>
           <p class="quiz-note" style="margin-top:14px">
-            释义来源：优先读取本地 ECDICT 精简词库；未被收录的单词会自动查询免费中文词典接口补充。音标统一由 dictionaryapi.dev 提供。
+            释义来源：ECDICT 2 万词条扩展词库，本地直接读取。音标由 dictionaryapi.dev 提供，已获取的会写入本地缓存，清空缓存后可重新拉取。
           </p>
         </div>
       </div>
@@ -290,14 +355,14 @@
   /* =========================================================
      配置
      ========================================================= */
-  const MASTER_KEY = 'words-tool-mastered-v7';
-  const PHONETIC_CACHE_KEY = 'words-tool-phonetic-cache-v1';
+  const MASTER_KEY         = 'words-tool-mastered-v9';
+  const PHONETIC_CACHE_KEY = 'words-tool-phonetic-cache-v2';
+  const SHOW_DEF_KEY       = 'words-tool-show-def-v1';
+  const AUTO_PHONETIC_KEY  = 'words-tool-auto-phonetic-v1';
   const SOURCES = ['wordlist.txt'];
 
-  // ECDICT 精简词库（3000 高频词）
-  const ECDICT_URL = 'https://raw.githubusercontent.com/FluentRead/FluentRead/main/public/ecdict-core.json';
-
-  // dictionaryapi.dev 音标接口
+  // 2 万词条扩展词库
+  const ECDICT_URL = 'https://raw.githubusercontent.com/FluentRead/FluentRead/refs/heads/main/assets/optional/ecdict-core-full.json';
   const PHONETIC_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
 
   /* =========================================================
@@ -316,8 +381,18 @@
   };
 
   let nextTimer = null;
-  let dict = new Map();          // ECDICT 本地词库
-  let phoneticCache = loadPhoneticCache();   // 联网获取的音标缓存
+  let dict = new Map();
+  let phoneticCache = loadPhoneticCache();
+
+  let showDef = (function () {
+    try { return localStorage.getItem(SHOW_DEF_KEY) !== '0'; }
+    catch (e) { return true; }
+  })();
+
+  let autoPhonetic = (function () {
+    try { return localStorage.getItem(AUTO_PHONETIC_KEY) !== '0'; }
+    catch (e) { return true; }
+  })();
 
   /* =========================================================
      工具
@@ -335,7 +410,6 @@
     return a;
   }
 
-  /* 关键修复：把字面量 \n 转成真实换行 */
   function unescapeNewlines(s) {
     return String(s).replace(/\\n/g, '\n').replace(/\\r/g, '');
   }
@@ -356,12 +430,19 @@
     try { localStorage.setItem(PHONETIC_CACHE_KEY, JSON.stringify(phoneticCache)); } catch (e) {}
   }
 
+  function saveShowDef() {
+    try { localStorage.setItem(SHOW_DEF_KEY, showDef ? '1' : '0'); } catch (e) {}
+  }
+  function saveAutoPhonetic() {
+    try { localStorage.setItem(AUTO_PHONETIC_KEY, autoPhonetic ? '1' : '0'); } catch (e) {}
+  }
+
   /* =========================================================
-     加载 ECDICT 离线词库（修复 \n）
+     加载 ECDICT 词库
      ========================================================= */
   async function loadDict() {
     const res = await fetch(ECDICT_URL, { cache: 'force-cache' });
-    if (!res.ok) throw new Error('ECDICT 加载失败：HTTP ' + res.status);
+    if (!res.ok) throw new Error('词库加载失败：HTTP ' + res.status);
     const rows = await res.json();
 
     dict.clear();
@@ -371,8 +452,8 @@
       if (!word) continue;
       dict.set(word, {
         phonetic: String(row[1] || '').trim(),
-        definition: unescapeNewlines(row[2]),   // 修复 \n
-        translation: unescapeNewlines(row[3])   // 修复 \n
+        definition: unescapeNewlines(row[2]),
+        translation: unescapeNewlines(row[3])
       });
     }
   }
@@ -382,7 +463,7 @@
   }
 
   /* =========================================================
-     音标：dictionaryapi.dev
+     音标：dictionaryapi.dev（带缓存 + 队列）
      ========================================================= */
   const phoneticQueue = [];
   const phoneticPending = new Set();
@@ -390,6 +471,7 @@
   const PHONETIC_CONCURRENCY = 3;
 
   function enqueuePhonetic(word) {
+    if (!autoPhonetic) return;
     const key = word.toLowerCase();
     if (phoneticCache[key] !== undefined) return;
     if (!/^[A-Za-z][A-Za-z'’\-]*$/.test(word)) return;
@@ -400,7 +482,7 @@
   }
 
   function pumpPhonetic() {
-    while (phoneticRunning < PHONETIC_CONCURRENCY && phoneticQueue.length) {
+    while (autoPhonetic && phoneticRunning < PHONETIC_CONCURRENCY && phoneticQueue.length) {
       const job = phoneticQueue.shift();
       phoneticPending.add(job.key);
       phoneticRunning++;
@@ -456,10 +538,11 @@
         entries.forEach(e => {
           if (!e.isIntersecting) return;
           phoneticObserver.unobserve(e.target);
+          if (!autoPhonetic) return;
           const key = e.target.dataset.key;
           const word = e.target.dataset.word;
           if (phoneticCache[key] !== undefined) return;
-          if (lookup(word)?.phonetic) return;   // ECDICT 已有音标，跳过联网
+          if (lookup(word)?.phonetic) return;
           enqueuePhonetic(word);
         });
       }, { rootMargin: '240px' })
@@ -523,7 +606,7 @@
       } else if (data) {
         defHtml = '<span class="miss-text">（词库中无中文释义）</span>';
       } else {
-        defHtml = '<span class="miss-text">（未收录，可尝试联网补充）</span>';
+        defHtml = '<span class="miss-text">（未收录）</span>';
       }
 
       html +=
@@ -539,7 +622,7 @@
     listEl.innerHTML = html;
     updateProgress();
 
-    if (phoneticObserver) {
+    if (phoneticObserver && autoPhonetic) {
       listEl.querySelectorAll('.word-row').forEach(el => {
         const key = el.dataset.key;
         const word = el.dataset.word;
@@ -805,8 +888,8 @@
     } catch (err) {
       document.getElementById('list').innerHTML =
         '<div class="notice">' +
-          '<p><strong>离线词库加载失败</strong>（' + esc(err.message) + '）</p>' +
-          '<p>请检查网络是否能访问 GitHub Raw。如果访问不稳定，可以把 <code>ecdict-core.json</code> 下载到本地同目录，然后将代码里的 <code>ECDICT_URL</code> 改为 <code>ecdict-core.json</code>。</p>' +
+          '<p><strong>扩展词库加载失败</strong>（' + esc(err.message) + '）</p>' +
+          '<p>请检查网络是否能访问 GitHub Raw。如果访问不稳定，可以把 <code>ecdict-core-full.json</code> 下载到本地同目录，然后将代码里的 <code>ECDICT_URL</code> 改为 <code>ecdict-core-full.json</code>。</p>' +
         '</div>';
       return;
     }
@@ -837,6 +920,77 @@
       reader.readAsText(file, 'utf-8');
     });
   }
+
+  /* =========================================================
+     胶囊开关：释义
+     ========================================================= */
+  function syncDefToggle() {
+    document.body.classList.toggle('hide-def', !showDef);
+    document.getElementById('toggleDef').checked = showDef;
+  }
+
+  document.getElementById('toggleDef').addEventListener('change', e => {
+    showDef = e.target.checked;
+    saveShowDef();
+    syncDefToggle();
+  });
+
+  /* =========================================================
+     胶囊开关：音标
+     ========================================================= */
+  function syncPhoneticToggle() {
+    document.body.classList.toggle('hide-phonetic', !autoPhonetic);
+    document.getElementById('togglePhonetic').checked = autoPhonetic;
+  }
+
+  document.getElementById('togglePhonetic').addEventListener('change', e => {
+    autoPhonetic = e.target.checked;
+    saveAutoPhonetic();
+    syncPhoneticToggle();
+    if (autoPhonetic) {
+      // 打开时：为当前列表中还没音标的单词重新排队
+      document.querySelectorAll('#list .word-row').forEach(el => {
+        const key = el.dataset.key;
+        const word = el.dataset.word;
+        if (phoneticCache[key] !== undefined) return;
+        if (lookup(word)?.phonetic) return;
+        if (phoneticObserver) phoneticObserver.observe(el);
+        else enqueuePhonetic(word);
+      });
+    } else {
+      // 关闭时：清空待请求队列
+      phoneticQueue.length = 0;
+    }
+  });
+
+  /* =========================================================
+     清空缓存
+     ========================================================= */
+  document.getElementById('clearCache').addEventListener('click', () => {
+    const cachedCount = Object.keys(phoneticCache).length;
+    if (!cachedCount) {
+      alert('当前没有已缓存的音标。');
+      return;
+    }
+    if (!confirm('将清空 ' + cachedCount + ' 条已缓存的音标记录，之后浏览时会重新联网获取。是否继续？')) return;
+
+    phoneticCache = {};
+    savePhoneticCache();
+    phoneticQueue.length = 0;
+    phoneticPending.clear();
+
+    renderBrowse();
+
+    if (autoPhonetic) {
+      document.querySelectorAll('#list .word-row').forEach(el => {
+        const key = el.dataset.key;
+        const word = el.dataset.word;
+        if (lookup(word)?.phonetic) return;
+        if (phoneticObserver) phoneticObserver.observe(el);
+        else enqueuePhonetic(word);
+      });
+    }
+  });
 
   /* =========================================================
      事件
@@ -901,6 +1055,11 @@
     }
   });
 
+  /* =========================================================
+     初始化
+     ========================================================= */
+  syncDefToggle();
+  syncPhoneticToggle();
   updateQuizNote();
   init();
 })();
