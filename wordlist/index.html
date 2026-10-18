@@ -22,8 +22,7 @@
   }
 
   /* 开关：隐藏释义 / 音标 */
-  body.hide-def .word-d,
-  body.hide-def .word-ex { display: none; }
+  body.hide-def .word-d { display: none; }
   body.hide-phonetic .word-p { display: none; }
 
   /* 顶部栏 */
@@ -142,7 +141,7 @@
   }
   .btn-tiny:hover { border-color: var(--primary); color: var(--primary); }
 
-  /* ================= 单词行：CSS Grid 列对齐 ================= */
+  /* ================= 单词行：4 列 Grid ================= */
   .letter-title {
     padding: 14px 4px 6px; font-size: 11px; font-weight: 700;
     letter-spacing: .08em; text-transform: uppercase; color: var(--muted-2);
@@ -152,10 +151,11 @@
 
   .word-row {
     display: grid;
-    grid-template-columns: 15px 150px 1fr;  /* 复选框 | 音标 | 释义 */
+    /* 复选框 | 单词名 | 音标 | 释义 */
+    grid-template-columns: 15px 140px 150px 1fr;
     column-gap: 9px;
     align-items: start;
-    padding: 8px 6px;
+    padding: 9px 6px;
     border-bottom: 1px solid var(--border-light);
     cursor: pointer;
     transition: background .12s;
@@ -165,52 +165,46 @@
   .word-row .box { grid-column: 1; grid-row: 1; margin-top: 2px; }
 
   .word-row .word-w {
-    grid-column: 1 / -1; grid-row: 1;   /* 单词本身跨整行，但通过 padding 让出复选框位置 */
-    padding-left: 24px;
+    grid-column: 2; grid-row: 1;
     font-weight: 600; font-size: 14px; color: #333;
     word-break: break-word;
-    align-self: center;
-    display: none;  /* 单词名已合并到释义列中，这里隐藏独立元素，避免 Grid 布局冲突 */
+    line-height: 1.5;
   }
 
-  /* 音标列：固定宽度，保证所有音标起始位置一致 */
   .word-row .word-p {
-    grid-column: 2; grid-row: 1;
+    grid-column: 3; grid-row: 1;
     font-family: "Fira Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12.5px; color: #5b8def;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    align-self: center;
+    word-break: break-word;
+    line-height: 1.5;
     padding-top: 1px;
   }
-  .word-row .word-p[hidden] { display: none; }
 
-  /* 释义列：自动占满剩余空间 */
   .word-row .word-d {
-    grid-column: 3; grid-row: 1;
+    grid-column: 4; grid-row: 1;
     color: var(--muted); font-size: 13px;
     word-break: break-word;
     line-height: 1.6;
     white-space: pre-wrap;
   }
 
-  /* 例句行：从音标列开始跨到末尾，与释义左侧对齐 */
+  /* 例句行：第 2 列开始，跨到末尾 */
   .word-row .word-ex {
     grid-column: 2 / -1;
     grid-row: 2;
     font-size: 12px; color: #aaa;
     line-height: 1.6;
-    margin-top: 2px;
+    margin-top: 3px;
     font-style: italic;
-    white-space: pre-wrap;
   }
   .word-row .word-ex:empty { display: none; }
 
-  .word-row.mastered .word-d,
+  .word-row.mastered .word-w {
+    text-decoration: line-through; text-decoration-thickness: 1.5px; color: #aaa;
+  }
   .word-row.mastered .word-p,
+  .word-row.mastered .word-d,
   .word-row.mastered .word-ex { color: #bbb; }
-  .word-row.mastered .word-d { text-decoration: line-through; text-decoration-thickness: 1.5px; }
 
   .word-row .miss-text { color: #c77; font-size: 12px; font-style: italic; }
 
@@ -257,6 +251,7 @@
   .quiz-feedback.err { color: var(--negative); }
   .quiz-feedback .answer { color: var(--text); font-weight: 700; }
   .quiz-feedback .phon { font-family: ui-monospace, monospace; font-weight: 400; color: var(--muted); margin-left: 6px; font-size: 13px; }
+  .quiz-feedback .example { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 4px; font-style: italic; }
 
   .quiz-actions { display: flex; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-light); }
   .quiz-actions .btn { flex: 1; }
@@ -290,8 +285,13 @@
     .progress-wrap { width: 60px; }
     .panel-body { padding: 10px 12px 14px; }
 
-    /* 移动端音标列收窄 */
-    .word-row { grid-template-columns: 15px 110px 1fr; }
+    /* 移动端 4 列收窄 */
+    .word-row { grid-template-columns: 15px 90px 105px 1fr; column-gap: 6px; padding: 8px 4px; }
+    .word-row .word-w { font-size: 13px; }
+    .word-row .word-p { font-size: 11.5px; }
+    .word-row .word-d { font-size: 12px; }
+    .quiz-form { flex-direction: column; }
+    .quiz-form .btn-primary { padding: 11px 20px; }
   }
 </style>
 </head>
@@ -327,11 +327,11 @@
               <span>释义</span>
               <span class="switch"><input type="checkbox" id="toggleDef" checked><span class="slider"></span></span>
             </label>
-            <label class="toggle-wrap" title="联网获取音标">
+            <label class="toggle-wrap" title="联网获取音标和例句">
               <span>音标</span>
               <span class="switch"><input type="checkbox" id="togglePhonetic" checked><span class="slider"></span></span>
             </label>
-            <button class="btn-tiny" id="clearCache" title="清空已获取的音标缓存">清空缓存</button>
+            <button class="btn-tiny" id="clearCache" title="清空音标和例句缓存">清空缓存</button>
             <button class="btn-tiny" id="reset" title="清除掌握标记">重置</button>
           </div>
         </div>
@@ -359,7 +359,7 @@
           <p class="quiz-note" id="quizNote"></p>
           <button id="quizStart" class="btn btn-primary btn-block">开始复盘</button>
           <p class="quiz-note" style="margin-top:14px">
-            释义来源：ECDICT 2 万词条扩展词库，本地直接读取。音标由 dictionaryapi.dev 提供；例句优先使用 ECDICT 内置内容，缺失时向 Harika Dictionary API 请求。已获取的音标会写入本地缓存，清空缓存后可重新拉取。
+            释义来源：ECDICT 2 万词条扩展词库，本地直接读取。音标与例句由 dictionaryapi.dev 一次请求同时获取，结果缓存在本地，清空缓存后可重新拉取。
           </p>
         </div>
       </div>
@@ -399,19 +399,15 @@
   /* =========================================================
      配置
      ========================================================= */
-  const MASTER_KEY         = 'words-tool-mastered-v10';
-  const PHONETIC_CACHE_KEY = 'words-tool-phonetic-cache-v3';
-  const EXAMPLE_CACHE_KEY  = 'words-tool-example-cache-v1';
-  const SHOW_DEF_KEY       = 'words-tool-show-def-v1';
-  const AUTO_PHONETIC_KEY  = 'words-tool-auto-phonetic-v1';
+  const MASTER_KEY          = 'words-tool-mastered-v11';
+  const WORD_DATA_CACHE_KEY = 'words-tool-word-data-v1';
+  const SHOW_DEF_KEY        = 'words-tool-show-def-v2';
+  const AUTO_PHONETIC_KEY   = 'words-tool-auto-phonetic-v2';
   const SOURCES = ['wordlist.txt'];
 
-  // 2 万词条扩展词库（本地释义 + 部分音标）
   const ECDICT_URL = 'https://raw.githubusercontent.com/FluentRead/FluentRead/refs/heads/main/assets/optional/ecdict-core-full.json';
-  // 音标接口
-  const PHONETIC_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
-  // 例句补充接口（Harika，基于 dictionaryapi.dev 的简化封装）
-  const HARIKA_API = 'https://dictionary-api-7hmy.onrender.com/define?word=';
+  const WORD_API   = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
+  const FETCH_TIMEOUT = 8000;
 
   /* =========================================================
      状态
@@ -430,8 +426,9 @@
 
   let nextTimer = null;
   let dict = new Map();
-  let phoneticCache = loadPhoneticCache();
-  let exampleCache = loadExampleCache();
+
+  // wordDataCache: { [wordKey]: { phonetic: '', examples: [''], error: false } }
+  let wordDataCache = loadWordDataCache();
 
   let showDef = (function () {
     try { return localStorage.getItem(SHOW_DEF_KEY) !== '0'; }
@@ -463,6 +460,12 @@
     return String(s).replace(/\\n/g, '\n').replace(/\\r/g, '');
   }
 
+  function fetchWithTimeout(url) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+  }
+
   function loadMastered() {
     try { const r = localStorage.getItem(MASTER_KEY); return new Set(r ? JSON.parse(r) : []); }
     catch (e) { return new Set(); }
@@ -471,20 +474,12 @@
     try { localStorage.setItem(MASTER_KEY, JSON.stringify([...state.mastered])); } catch (e) {}
   }
 
-  function loadPhoneticCache() {
-    try { const r = localStorage.getItem(PHONETIC_CACHE_KEY); return r ? JSON.parse(r) : {}; }
+  function loadWordDataCache() {
+    try { const r = localStorage.getItem(WORD_DATA_CACHE_KEY); return r ? JSON.parse(r) : {}; }
     catch (e) { return {}; }
   }
-  function savePhoneticCache() {
-    try { localStorage.setItem(PHONETIC_CACHE_KEY, JSON.stringify(phoneticCache)); } catch (e) {}
-  }
-
-  function loadExampleCache() {
-    try { const r = localStorage.getItem(EXAMPLE_CACHE_KEY); return r ? JSON.parse(r) : {}; }
-    catch (e) { return {}; }
-  }
-  function saveExampleCache() {
-    try { localStorage.setItem(EXAMPLE_CACHE_KEY, JSON.stringify(exampleCache)); } catch (e) {}
+  function saveWordDataCache() {
+    try { localStorage.setItem(WORD_DATA_CACHE_KEY, JSON.stringify(wordDataCache)); } catch (e) {}
   }
 
   function saveShowDef() {
@@ -520,159 +515,121 @@
   }
 
   /* =========================================================
-     音标：dictionaryapi.dev（带缓存 + 队列）
+     单词数据：dictionaryapi.dev 一次请求拿音标 + 例句
      ========================================================= */
-  const phoneticQueue = [];
-  const phoneticPending = new Set();
-  let phoneticRunning = 0;
-  const PHONETIC_CONCURRENCY = 3;
+  const dataQueue = [];
+  const dataPending = new Set();
+  let dataRunning = 0;
+  const DATA_CONCURRENCY = 3;
 
-  function enqueuePhonetic(word) {
+  function enqueueWordData(word) {
     if (!autoPhonetic) return;
     const key = word.toLowerCase();
-    if (phoneticCache[key] !== undefined) return;
+    if (wordDataCache[key] !== undefined) return;
     if (!/^[A-Za-z][A-Za-z'’\-]*$/.test(word)) return;
-    if (phoneticPending.has(key)) return;
-    if (phoneticQueue.some(j => j.key === key)) return;
-    phoneticQueue.push({ key, word });
-    pumpPhonetic();
+    if (dataPending.has(key)) return;
+    if (dataQueue.some(j => j.key === key)) return;
+    dataQueue.push({ key, word });
+    pumpWordData();
   }
 
-  function pumpPhonetic() {
-    while (autoPhonetic && phoneticRunning < PHONETIC_CONCURRENCY && phoneticQueue.length) {
-      const job = phoneticQueue.shift();
-      phoneticPending.add(job.key);
-      phoneticRunning++;
-      fetchPhonetic(job.word)
-        .then(ph => {
-          phoneticCache[job.key] = ph || '';
-          savePhoneticCache();
-          updatePhoneticDom(job.key);
+  function pumpWordData() {
+    while (autoPhonetic && dataRunning < DATA_CONCURRENCY && dataQueue.length) {
+      const job = dataQueue.shift();
+      dataPending.add(job.key);
+      dataRunning++;
+      fetchWordData(job.word)
+        .then(data => {
+          wordDataCache[job.key] = data;
+          saveWordDataCache();
+          updateWordDataDom(job.key);
         })
         .catch(() => {
-          phoneticCache[job.key] = '';
-          savePhoneticCache();
+          // 失败也缓存，避免反复请求
+          wordDataCache[job.key] = { phonetic: '', examples: [], error: true };
+          saveWordDataCache();
         })
         .finally(() => {
-          phoneticPending.delete(job.key);
-          phoneticRunning--;
-          pumpPhonetic();
+          dataPending.delete(job.key);
+          dataRunning--;
+          pumpWordData();
         });
     }
   }
 
-  async function fetchPhonetic(word) {
-    const url = PHONETIC_API + encodeURIComponent(word);
-    const res = await fetch(url);
+  async function fetchWordData(word) {
+    const url = WORD_API + encodeURIComponent(word);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    if (!Array.isArray(data) || !data.length) return '';
+    if (!Array.isArray(data) || !data.length) {
+      return { phonetic: '', examples: [], error: false };
+    }
+
+    let phonetic = '';
+    const examples = [];
+
     for (const entry of data) {
-      if (entry.phonetic) return entry.phonetic.replace(/[\/\[\]]/g, '').trim();
-      if (Array.isArray(entry.phonetics)) {
-        for (const p of entry.phonetics) {
-          if (p.text) return p.text.replace(/[\/\[\]]/g, '').trim();
+      if (!phonetic) {
+        if (entry.phonetic) {
+          phonetic = String(entry.phonetic).replace(/[\/\[\]]/g, '').trim();
+        }
+        if (!phonetic && Array.isArray(entry.phonetics)) {
+          for (const p of entry.phonetics) {
+            if (p && p.text) {
+              phonetic = String(p.text).replace(/[\/\[\]]/g, '').trim();
+              if (phonetic) break;
+            }
+          }
+        }
+      }
+      if (Array.isArray(entry.meanings)) {
+        for (const meaning of entry.meanings) {
+          if (!Array.isArray(meaning.definitions)) continue;
+          for (const def of meaning.definitions) {
+            if (def && def.example && examples.length < 2) {
+              examples.push(String(def.example).trim());
+            }
+          }
         }
       }
     }
-    return '';
+
+    return { phonetic, examples, error: false };
   }
 
-  function updatePhoneticDom(key) {
-    const ph = phoneticCache[key];
-    if (!ph) return;
-    let nodes;
-    try { nodes = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"] .word-p'); }
-    catch (e) { nodes = []; }
-    nodes.forEach(el => {
-      el.textContent = '/' + ph + '/';
-      el.hidden = false;
+  function updateWordDataDom(key) {
+    const d = wordDataCache[key];
+    if (!d) return;
+    let rows;
+    try { rows = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"]'); }
+    catch (e) { rows = []; }
+    rows.forEach(row => {
+      // 音标
+      const pEl = row.querySelector('.word-p');
+      if (pEl && d.phonetic) {
+        pEl.textContent = '/' + d.phonetic + '/';
+      }
+      // 例句
+      const exEl = row.querySelector('.word-ex');
+      if (exEl && Array.isArray(d.examples) && d.examples.length) {
+        exEl.innerHTML = d.examples.map(ex => '“' + esc(ex) + '”').join('<br>');
+      }
     });
   }
 
-  /* =========================================================
-     例句：Harika（带缓存 + 队列）
-     ========================================================= */
-  const exampleQueue = [];
-  const examplePending = new Set();
-  let exampleRunning = 0;
-  const EXAMPLE_CONCURRENCY = 2;
-
-  function enqueueExample(word) {
-    const key = word.toLowerCase();
-    if (exampleCache[key] !== undefined) return;
-    if (!/^[A-Za-z][A-Za-z'’\-]*$/.test(word)) return;
-    if (examplePending.has(key)) return;
-    if (exampleQueue.some(j => j.key === key)) return;
-    exampleQueue.push({ key, word });
-    pumpExample();
-  }
-
-  function pumpExample() {
-    while (exampleRunning < EXAMPLE_CONCURRENCY && exampleQueue.length) {
-      const job = exampleQueue.shift();
-      examplePending.add(job.key);
-      exampleRunning++;
-      fetchExample(job.word)
-        .then(ex => {
-          exampleCache[job.key] = ex || '';
-          saveExampleCache();
-          updateExampleDom(job.key);
-        })
-        .catch(() => {
-          exampleCache[job.key] = '';
-          saveExampleCache();
-        })
-        .finally(() => {
-          examplePending.delete(job.key);
-          exampleRunning--;
-          pumpExample();
-        });
-    }
-  }
-
-  async function fetchExample(word) {
-    const url = HARIKA_API + encodeURIComponent(word);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    // Harika 返回格式：{ example: "..." } 或 { definition: "...", example: "..." }
-    if (data && typeof data.example === 'string' && data.example.trim()) {
-      return data.example.trim();
-    }
-    return '';
-  }
-
-  function updateExampleDom(key) {
-    const ex = exampleCache[key];
-    if (!ex) return;
-    let nodes;
-    try { nodes = document.querySelectorAll('.word-row[data-key="' + CSS.escape(key) + '"] .word-ex'); }
-    catch (e) { nodes = []; }
-    nodes.forEach(el => {
-      el.textContent = '“' + ex + '”';
-    });
-  }
-
-  /* 视口触发：同时处理音标和例句 */
-  const io = ('IntersectionObserver' in window)
+  const dataObserver = ('IntersectionObserver' in window)
     ? new IntersectionObserver(entries => {
         entries.forEach(e => {
           if (!e.isIntersecting) return;
-          io.unobserve(e.target);
+          dataObserver.unobserve(e.target);
+          if (!autoPhonetic) return;
           const key = e.target.dataset.key;
           const word = e.target.dataset.word;
-
-          // 音标
-          if (autoPhonetic && phoneticCache[key] === undefined && !lookup(word)?.phonetic) {
-            enqueuePhonetic(word);
-          }
-          // 例句
-          if (exampleCache[key] === undefined) {
-            enqueueExample(word);
-          }
+          if (wordDataCache[key] !== undefined) return;
+          enqueueWordData(word);
         });
-      }, { rootMargin: '240px' })
+      }, { rootMargin: '260px' })
     : null;
 
   /* =========================================================
@@ -723,43 +680,44 @@
       }
 
       const mastered = state.mastered.has(w.key);
-      const data = lookup(w.word);
-      const ph = (data && data.phonetic) || phoneticCache[w.key] || '';
-      const trans = data && data.translation ? data.translation : '';
-      const ex = exampleCache[w.key] || '';
+      const dictData = lookup(w.word);
+      const fetched = wordDataCache[w.key];
+
+      const ph = (dictData && dictData.phonetic) || (fetched && fetched.phonetic) || '';
+      const trans = dictData && dictData.translation ? dictData.translation : '';
+      const examples = (fetched && Array.isArray(fetched.examples)) ? fetched.examples : [];
 
       let defHtml;
       if (trans) {
         defHtml = esc(trans);
-      } else if (data) {
+      } else if (dictData) {
         defHtml = '<span class="miss-text">（词库中无中文释义）</span>';
       } else {
         defHtml = '<span class="miss-text">（未收录）</span>';
       }
 
+      const exHtml = examples.length
+        ? examples.map(ex => '“' + esc(ex) + '”').join('<br>')
+        : '';
+
       html +=
         '<label class="word-row' + (mastered ? ' mastered' : '') + '" data-key="' + esc(w.key) + '" data-word="' + esc(w.word) + '">' +
           '<input type="checkbox" class="box"' + (mastered ? ' checked' : '') + '>' +
-          '<span class="word-p"' + (ph ? '' : ' hidden') + '>' + (ph ? '/' + esc(ph) + '/' : '') + '</span>' +
+          '<span class="word-w">' + esc(w.word) + '</span>' +
+          '<span class="word-p">' + (ph ? '/' + esc(ph) + '/' : '') + '</span>' +
           '<span class="word-d">' + defHtml + '</span>' +
-          '<span class="word-ex">' + (ex ? '“' + esc(ex) + '”' : '') + '</span>' +
+          '<span class="word-ex">' + exHtml + '</span>' +
         '</label>';
     }
 
     listEl.innerHTML = html;
     updateProgress();
 
-    if (io) {
+    if (dataObserver && autoPhonetic) {
       listEl.querySelectorAll('.word-row').forEach(el => {
         const key = el.dataset.key;
-        const word = el.dataset.word;
-        if (phoneticCache[key] === undefined && exampleCache[key] === undefined) {
-          io.observe(el);
-        } else if (phoneticCache[key] === undefined) {
-          io.observe(el);
-        } else if (exampleCache[key] === undefined) {
-          io.observe(el);
-        }
+        if (wordDataCache[key] !== undefined) return;
+        dataObserver.observe(el);
       });
     }
   }
@@ -845,11 +803,12 @@
     showQuestion();
   }
 
-  function currentDef(q) { return lookup(q.word) || {}; }
+  function currentDictData(q) { return lookup(q.word) || {}; }
+  function currentFetched(q) { return wordDataCache[q.key] || {}; }
 
   function showQuestion() {
     const q = quiz.questions[quiz.index];
-    const data = currentDef(q);
+    const data = currentDictData(q);
     document.getElementById('quizDef').textContent = data.translation || '（无中文释义）';
     document.getElementById('quizHint').textContent = '';
     document.getElementById('quizInput').value = '';
@@ -861,8 +820,7 @@
     updateQuizProgress();
     focusQuizInput();
 
-    if (phoneticCache[q.key] === undefined && !data.phonetic) enqueuePhonetic(q.word);
-    if (exampleCache[q.key] === undefined) enqueueExample(q.word);
+    if (autoPhonetic && wordDataCache[q.key] === undefined) enqueueWordData(q.word);
   }
 
   function focusQuizInput() {
@@ -889,6 +847,16 @@
     return full.split(/[\/,;]/).map(s => s.trim()).filter(Boolean).includes(a);
   }
 
+  function buildFeedbackHtml(q, prefixHtml) {
+    const dictData = currentDictData(q);
+    const fetched = currentFetched(q);
+    const ph = dictData.phonetic || fetched.phonetic || '';
+    const ex = (fetched.examples && fetched.examples[0]) ? fetched.examples[0] : '';
+    return prefixHtml +
+      (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '') +
+      (ex ? '<span class="example">“' + esc(ex) + '”</span>' : '');
+  }
+
   function submitAnswer() {
     if (!quiz.running) return;
     if (quiz.answered) { nextQuestion(); return; }
@@ -897,27 +865,22 @@
     if (!raw.trim()) { inputEl.focus(); return; }
 
     const q = quiz.questions[quiz.index];
-    const data = currentDef(q);
-    const ph = data.phonetic || phoneticCache[q.key] || '';
-    const ex = exampleCache[q.key] || '';
     quiz.answered = true;
     inputEl.disabled = true;
     const fb = document.getElementById('quizFeedback');
 
-    const exHtml = ex ? '<span class="example">“' + esc(ex) + '”</span>' : '';
-
     if (checkAnswer(raw, q.word)) {
       quiz.correct++;
       fb.className = 'quiz-feedback ok';
-      fb.innerHTML = '✓ 正确' + (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '') + exHtml;
+      fb.innerHTML = buildFeedbackHtml(q, '✓ 正确');
       document.getElementById('quizSubmit').textContent = '下一题';
       updateQuizProgress();
-      nextTimer = setTimeout(nextQuestion, 800);
+      nextTimer = setTimeout(nextQuestion, 900);
     } else {
       quiz.wrong.push(q);
       fb.className = 'quiz-feedback err';
-      fb.innerHTML = '✗ 正确答案：<span class="answer">' + esc(q.word) + '</span>' +
-        (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '') + exHtml;
+      fb.innerHTML = buildFeedbackHtml(q,
+        '✗ 正确答案：<span class="answer">' + esc(q.word) + '</span>');
       document.getElementById('quizSubmit').textContent = '下一题';
       updateQuizProgress();
       document.getElementById('quizSubmit').focus();
@@ -936,17 +899,13 @@
     if (!quiz.running) return;
     if (quiz.answered) { nextQuestion(); return; }
     const q = quiz.questions[quiz.index];
-    const data = currentDef(q);
-    const ph = data.phonetic || phoneticCache[q.key] || '';
-    const ex = exampleCache[q.key] || '';
     quiz.answered = true;
     quiz.wrong.push(q);
     document.getElementById('quizInput').disabled = true;
     const fb = document.getElementById('quizFeedback');
     fb.className = 'quiz-feedback err';
-    fb.innerHTML = '已跳过 · 正确答案：<span class="answer">' + esc(q.word) + '</span>' +
-      (ph ? '<span class="phon">/' + esc(ph) + '/</span>' : '') +
-      (ex ? '<span class="example">“' + esc(ex) + '”</span>' : '');
+    fb.innerHTML = buildFeedbackHtml(q,
+      '已跳过 · 正确答案：<span class="answer">' + esc(q.word) + '</span>');
     document.getElementById('quizSubmit').textContent = '下一题';
     updateQuizProgress();
     document.getElementById('quizSubmit').focus();
@@ -976,12 +935,13 @@
     if (wrong.length) {
       html += '<div class="result-wrong"><h3>错题回顾</h3><ul>' +
         wrong.map(w => {
-          const data = currentDef(w);
-          const ph = data.phonetic || phoneticCache[w.key] || '';
-          const ex = exampleCache[w.key] || '';
+          const dictData = lookup(w.word) || {};
+          const fetched = wordDataCache[w.key] || {};
+          const ph = dictData.phonetic || fetched.phonetic || '';
+          const ex = (fetched.examples && fetched.examples[0]) ? fetched.examples[0] : '';
           return '<li><b>' + esc(w.word) + '</b>' +
             (ph ? '<span class="rp">/' + esc(ph) + '/</span>' : '') +
-            '<span>' + esc(data.translation || '') + (ex ? ' · “' + esc(ex) + '”' : '') + '</span></li>';
+            '<span>' + esc(dictData.translation || '') + (ex ? ' · “' + esc(ex) + '”' : '') + '</span></li>';
         }).join('') +
         '</ul></div>';
       if (unmarked) html += '<p class="quiz-note">已将 ' + unmarked + ' 个答错的单词标记为「未掌握」。</p>';
@@ -1066,7 +1026,6 @@
     document.body.classList.toggle('hide-def', !showDef);
     document.getElementById('toggleDef').checked = showDef;
   }
-
   document.getElementById('toggleDef').addEventListener('change', e => {
     showDef = e.target.checked;
     saveShowDef();
@@ -1074,13 +1033,12 @@
   });
 
   /* =========================================================
-     胶囊开关：音标
+     胶囊开关：音标（同时控制例句获取）
      ========================================================= */
   function syncPhoneticToggle() {
     document.body.classList.toggle('hide-phonetic', !autoPhonetic);
     document.getElementById('togglePhonetic').checked = autoPhonetic;
   }
-
   document.getElementById('togglePhonetic').addEventListener('change', e => {
     autoPhonetic = e.target.checked;
     saveAutoPhonetic();
@@ -1088,14 +1046,12 @@
     if (autoPhonetic) {
       document.querySelectorAll('#list .word-row').forEach(el => {
         const key = el.dataset.key;
-        const word = el.dataset.word;
-        if (phoneticCache[key] !== undefined) return;
-        if (lookup(word)?.phonetic) return;
-        if (io) io.observe(el);
-        else enqueuePhonetic(word);
+        if (wordDataCache[key] !== undefined) return;
+        if (dataObserver) dataObserver.observe(el);
+        else enqueueWordData(el.dataset.word);
       });
     } else {
-      phoneticQueue.length = 0;
+      dataQueue.length = 0;
     }
   });
 
@@ -1103,32 +1059,24 @@
      清空缓存（音标 + 例句）
      ========================================================= */
   document.getElementById('clearCache').addEventListener('click', () => {
-    const phCount = Object.keys(phoneticCache).length;
-    const exCount = Object.keys(exampleCache).length;
-    if (!phCount && !exCount) {
-      alert('当前没有已缓存的音标或例句。');
+    const count = Object.keys(wordDataCache).length;
+    if (!count) {
+      alert('当前没有已缓存的音标 / 例句。');
       return;
     }
-    if (!confirm('将清空 ' + phCount + ' 条音标和 ' + exCount + ' 条例句缓存，之后浏览时会重新联网获取。是否继续？')) return;
+    if (!confirm('将清空 ' + count + ' 条音标与例句缓存，之后浏览时会重新联网获取。是否继续？')) return;
 
-    phoneticCache = {};
-    exampleCache = {};
-    savePhoneticCache();
-    saveExampleCache();
-    phoneticQueue.length = 0;
-    phoneticPending.clear();
-    exampleQueue.length = 0;
-    examplePending.clear();
+    wordDataCache = {};
+    saveWordDataCache();
+    dataQueue.length = 0;
+    dataPending.clear();
 
     renderBrowse();
 
     if (autoPhonetic) {
       document.querySelectorAll('#list .word-row').forEach(el => {
-        const key = el.dataset.key;
-        const word = el.dataset.word;
-        if (lookup(word)?.phonetic) return;
-        if (io) io.observe(el);
-        else enqueuePhonetic(word);
+        if (dataObserver) dataObserver.observe(el);
+        else enqueueWordData(el.dataset.word);
       });
     }
   });
@@ -1172,8 +1120,9 @@
   document.getElementById('quizHintBtn').addEventListener('click', () => {
     if (!quiz.running) return;
     const q = quiz.questions[quiz.index];
-    const data = currentDef(q);
-    const ph = data.phonetic || phoneticCache[q.key] || '';
+    const dictData = currentDictData(q);
+    const fetched = currentFetched(q);
+    const ph = dictData.phonetic || fetched.phonetic || '';
     const letters = q.word.replace(/[^A-Za-z]/g, '');
     document.getElementById('quizHint').textContent =
       '首字母 ' + q.word.charAt(0).toUpperCase() + ' · 共 ' + letters.length + ' 个字母' +
