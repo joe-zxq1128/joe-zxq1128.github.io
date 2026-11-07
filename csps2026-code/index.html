@@ -365,7 +365,7 @@
     color:#24292e;
     font-size:13px;
     line-height:20px;
-    position:relative; /* 用于内部的绝对定位 */
+    position:relative;
     z-index:1;
   }
   pre.code .k{color:#d73a49;}
@@ -376,7 +376,6 @@
   pre.code .p{color:#22863a;}
   pre.code .f{color:#6f42c1;}
 
-  /* 修正后的高亮条，放在 pre 内部 */
   .line-highlight{
     position:absolute;
     left:0;
@@ -384,7 +383,7 @@
     height:20px;
     background:rgba(255,193,7,0.28);
     pointer-events:none;
-    z-index:-1; /* 在文字下方 */
+    z-index:-1;
     border-radius:2px;
   }
 
@@ -594,7 +593,7 @@
     currentText: null,
     renderToken: 0,
     pendingScroll: null,
-    probing: { total: 0, done: 0, aborted: false },
+    probing: { total: 0, done: 0, aborted: false, foundAny: false },
     searching: false,
     searchAborted: false
   };
@@ -603,7 +602,6 @@
    *  工具
    * ========================================================= */
   const esc = s => s.replace(/[&<>]/g, c => c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c);
-  const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   let toastTimer;
   function toast(msg){
@@ -613,20 +611,6 @@
     el.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
-  }
-
-  function parseDirListing(html){
-    const result = [];
-    const re = /<a\s+[^>]*href\s*=\s*["']([^"']+)["'][^>]*>/gi;
-    let m;
-    while ((m = re.exec(html)) !== null){
-      let href = m[1].split('?')[0].split('#')[0];
-      if (!href || href === '../' || href.startsWith('../')) continue;
-      if (/^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
-      if (href.startsWith('/')) continue;
-      result.push(href);
-    }
-    return result;
   }
 
   class RequestQueue {
@@ -802,7 +786,7 @@
   }
 
   function showPickPrompt(isHttp){
-    navInfo.textContent = isHttp ? '未检测到 code 目录' : '本地文件模式';
+    navInfo.textContent = isHttp ? '未检测到代码' : '本地文件模式';
     progressText.textContent = '等待选择文件夹';
     progressBar.style.width = '0%';
     viewerEl.innerHTML = `
@@ -812,7 +796,7 @@
           <span class="step">1</span>点击顶部「<b>打开文件夹</b>」按钮，选择包含 <code>code/</code> 的目录
         </div>
         <div style="margin-bottom:6px;">
-          或把 <code>index.html</code> 放在 <code>code/</code> 同级的目录，用本地服务器打开：
+          或把 <code>index.html</code> 放在 <code>code/</code> 同级的目录，用本地服务器或 GitHub Pages 打开：
         </div>
         <div style="margin-bottom:6px;">
           <code>python -m http.server 8000</code> → 访问 <code>http://localhost:8000/</code>
@@ -824,39 +808,15 @@
   }
 
   /* =========================================================
-   *  HTTP 模式
+   *  HTTP 模式 (适配 GitHub Pages 不支持目录列表的情况)
    * ========================================================= */
   async function loadHttpIndex(){
-    let playerIds = null;
-    try {
-      const res = await fetch('code/', { cache: 'no-store' });
-      if (res.ok){
-        const ct = res.headers.get('content-type') || '';
-        if (ct.includes('html') || ct.includes('text/plain')){
-          const html = await res.text();
-          const entries = parseDirListing(html);
-          playerIds = entries
-            .map(e => e.replace(/\/$/, ''))
-            .filter(e => /^JS-S\d+$/i.test(e))
-            .map(e => e.toUpperCase())
-            .filter((v, i, a) => a.indexOf(v) === i)
-            .sort();
-          if (playerIds.length === 0) playerIds = null;
-        }
-      }
-    } catch (e){ /* 忽略 */ }
-
-    if (!playerIds){
-      try {
-        const res = await fetch('code/JS-S00001/', { method: 'HEAD', cache: 'no-store' });
-        if (!res.ok) return false;
-      } catch (e){ return false; }
-      playerIds = [];
-      for (let n = 1; n <= PLAYER_COUNT; n++) playerIds.push(idOf(n));
-    }
-
+    // 不再尝试拉取 code/ 目录列表（GitHub Pages 不支持）
+    // 直接假定存在 1953 名选手，并在后台利用 HEAD 请求探测真实文件
     state.mode = 'http';
-    state.players = playerIds;
+    state.players = [];
+    for (let n = 1; n <= PLAYER_COUNT; n++) state.players.push(idOf(n));
+    
     state.problemsOf.clear();
     state.cache.clear();
     state.files = null;
@@ -864,6 +824,7 @@
     btnClose.disabled = false;
     renderPlayerList();
     navInfo.textContent = 'HTTP 模式';
+    
     startProbing();
     return true;
   }
@@ -871,10 +832,11 @@
   async function startProbing(){
     if (state.probing.aborted) return;
     const players = state.players.slice();
-    state.probing = { total: players.length, done: 0, aborted: false };
+    state.probing = { total: players.length, done: 0, aborted: false, foundAny: false };
     updateProgress();
 
-    const queue = new RequestQueue(8);
+    // 并发限制设为 6，避免瞬间发出过多请求
+    const queue = new RequestQueue(6);
     let updateTimer = null;
     const scheduleUpdate = () => {
       if (updateTimer) return;
@@ -889,7 +851,10 @@
       if (state.probing.aborted) return;
       try {
         const problems = await probePlayerHttp(id);
-        if (problems) state.problemsOf.set(id, problems);
+        if (problems && problems.size > 0) {
+          state.problemsOf.set(id, problems);
+          state.probing.foundAny = true;
+        }
       } catch (e){ /* 忽略 */ }
       state.probing.done++;
       if (state.probing.done === state.probing.total){
@@ -902,8 +867,28 @@
 
     await Promise.all(tasks);
     if (state.probing.aborted) return;
+    
     updateProgress();
     refreshAllBadges();
+
+    if (!state.probing.foundAny) {
+      // 如果 1953 个选手都没探测到代码，可能路径配错了
+      navInfo.textContent = '未找到代码';
+      viewerEl.innerHTML = `
+        <div class="empty">
+          <div class="empty-title">未能加载任何代码文件</div>
+          <div style="text-align:left; margin-bottom:12px;">
+            已尝试读取 <code>code/JS-S00001/crystal/crystal.cpp</code>，但无法找到文件。请检查：<br>
+            1. 确保 <code>code</code> 文件夹在根目录下。<br>
+            2. 确保 <code>code</code> 目录内部结构为 <code>JS-S00001/题目文件夹/文件名.cpp</code>。<br>
+            3. 如果在 GitHub 上，请确认已正确推送所有代码文件。
+          </div>
+          <button class="btn btn-primary" id="btnPick3">手动打开文件夹</button>
+        </div>`;
+      const b = document.getElementById('btnPick3');
+      if (b) b.addEventListener('click', () => dirInput.click());
+      return;
+    }
 
     if (!state.currentId){
       const first = state.players.find(id => (state.problemsOf.get(id) || new Set()).size > 0);
@@ -913,22 +898,8 @@
   }
 
   async function probePlayerHttp(id){
-    try {
-      const res = await fetch('code/' + id + '/', { cache: 'no-store' });
-      if (res.ok){
-        const ct = res.headers.get('content-type') || '';
-        if (ct.includes('html') || ct.includes('text/plain')){
-          const html = await res.text();
-          const entries = parseDirListing(html);
-          const dirs = entries
-            .map(e => e.replace(/\/$/, '').toLowerCase())
-            .filter(d => PROB_BY_KEY[d]);
-          return new Set(dirs);
-        }
-      }
-    } catch (e){ /* 忽略 */ }
-
     const result = new Set();
+    // 由于没有目录列表，直接探测 4 个题目文件是否存在
     await Promise.all(PROBLEMS.map(async p => {
       try {
         const res = await fetch('code/' + id + '/' + p.key + '/' + p.file,
@@ -1099,8 +1070,9 @@
     renderTabs();
 
     if (state.mode === 'http' && !state.problemsOf.has(id)){
+      // 对于尚未探测到的选手，点击时立即去探测一下
       probePlayerHttp(id).then(problems => {
-        if (problems){
+        if (problems && problems.size > 0){
           state.problemsOf.set(id, problems);
           updateBadge(id);
           if (state.currentId === id) renderTabs();
@@ -1259,7 +1231,6 @@
     wrap.append(gutter, pre);
     viewerEl.appendChild(wrap);
 
-    // 处理搜索结果跳转
     const ps = state.pendingScroll;
     if (ps && ps.id === state.currentId && ps.probKey === state.currentProb){
       state.pendingScroll = null;
@@ -1268,7 +1239,7 @@
   }
 
   /* =========================================================
-   *  滚动到行 + 高亮 (修复版)
+   *  滚动到行 + 高亮
    * ========================================================= */
   function scrollToLine(lineNo){
     const wrap = viewerEl.querySelector('.code-wrap');
@@ -1276,24 +1247,19 @@
     const pre = wrap.querySelector('pre.code');
     if (!pre) return;
 
-    // 目标相对 pre 顶部 padding 的偏移
     const targetTop = CODE_PADDING_TOP + (lineNo - 1) * LINE_HEIGHT;
 
-    // 移除旧的高亮
     const old = pre.querySelector('.line-highlight');
     if (old) old.remove();
 
-    // 让容器滚动到目标可视区
     const scrollTop = targetTop - Math.floor(wrap.clientHeight / 3);
     wrap.scrollTop = Math.max(0, scrollTop);
 
-    // 创建高亮条并追加到 pre 内部，这样它会随着代码一起自然滚动，不会错位
     const hl = document.createElement('div');
     hl.className = 'line-highlight';
     hl.style.top = targetTop + 'px';
     pre.appendChild(hl);
 
-    // 2.5 秒后淡出
     setTimeout(() => {
       hl.style.transition = 'opacity .4s';
       hl.style.opacity = '0';
