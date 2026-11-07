@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSP-S 2026 江苏省 · 选手代码查看器</title>
+<style>
+  :root{
+    --navbar-bg:#2c3e50;
+    --primary:#337ab7;
+    --primary-dark:#286090;
+    --success:#5cb85c;
+    --warning:#f0ad4e;
+    --bg:#f0f2f5;
+    --panel:#ffffff;
+    --border:#ddd;
+    --border-light:#e8e8e8;
+    --text:#333;
+    --text-muted:#777;
+    --text-soft:#999;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:14px;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* ============ 顶部导航栏 ============ */
+  .navbar{
+    background:var(--navbar-bg);
+    color:#fff;
+    height:50px;
+    flex:0 0 50px;
+    display:flex;
+    align-items:center;
+    padding:0 20px;
+    gap:8px;
+    box-shadow:0 2px 4px rgba(0,0,0,0.1);
+    z-index:10;
+  }
+  .brand{
+    font-size:15px;
+    font-weight:600;
+    margin-right:auto;
+    letter-spacing:.3px;
+  }
+  .brand .brand-sub{
+    font-size:12px;
+    font-weight:400;
+    color:#a4b0be;
+    margin-left:8px;
+  }
+  .nav-info{
+    font-size:12px;
+    color:#a4b0be;
+    margin-right:8px;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 14px;
+    border-radius:4px;
+    border:1px solid transparent;
+    background:#fff;
+    color:var(--text);
+    font-size:13px;
+    font-family:inherit;
+    cursor:pointer;
+    transition:background .15s,border-color .15s,color .15s;
+    white-space:nowrap;
+  }
+  .btn:hover:not(:disabled){background:#f5f5f5;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-nav{
+    background:transparent;
+    color:#fff;
+    border-color:rgba(255,255,255,0.3);
+  }
+  .btn-nav:hover:not(:disabled){background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.5);}
+  .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary-dark);}
+  .btn-primary:hover:not(:disabled){background:var(--primary-dark);}
+  .btn-sm{padding:4px 10px;font-size:12px;}
+
+  /* ============ 布局 ============ */
+  .layout{
+    flex:1;
+    display:flex;
+    gap:12px;
+    padding:12px;
+    min-height:0;
+    overflow:hidden;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:4px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.05);
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+  .sidebar{width:290px;flex:0 0 290px;}
+  .main{flex:1;min-width:0;}
+  .panel-head{
+    padding:9px 12px;
+    border-bottom:1px solid var(--border-light);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:0 0 auto;
+    background:#fafbfc;
+    border-radius:4px 4px 0 0;
+  }
+  .panel-body{flex:1;overflow-y:auto;min-height:0;position:relative;}
+  .panel-body::-webkit-scrollbar{width:8px;}
+  .panel-body::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:4px;}
+  .panel-body::-webkit-scrollbar-thumb:hover{background:#a8a8a8;}
+  .panel-foot{
+    padding:8px 12px;
+    border-top:1px solid var(--border-light);
+    font-size:12px;
+    color:var(--text-muted);
+    flex:0 0 auto;
+    background:#fafbfc;
+    border-radius:0 0 4px 4px;
+  }
+
+  .form-input{
+    width:100%;
+    padding:6px 10px;
+    border:1px solid var(--border);
+    border-radius:4px;
+    font-size:13px;
+    font-family:inherit;
+    outline:none;
+    background:#fff;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .form-input:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(51,122,183,0.15);}
+
+  /* ============ 侧边栏 tabs ============ */
+  .side-tabs{
+    display:flex;
+    border-bottom:1px solid var(--border-light);
+    flex:0 0 auto;
+    background:#fafbfc;
+    border-radius:4px 4px 0 0;
+  }
+  .side-tab{
+    flex:1;
+    padding:9px 0;
+    border:0;
+    background:transparent;
+    cursor:pointer;
+    font-size:13px;
+    color:var(--text-muted);
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+    font-family:inherit;
+    transition:color .15s;
+  }
+  .side-tab:hover{color:var(--text);}
+  .side-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600;}
+
+  .search-box{
+    padding:8px 10px;
+    border-bottom:1px solid var(--border-light);
+    position:sticky;
+    top:0;
+    background:#fff;
+    z-index:3;
+  }
+  .search-actions{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-top:6px;
+  }
+  .case-label{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-size:12px;
+    color:var(--text-muted);
+    cursor:pointer;
+    margin-right:auto;
+    user-select:none;
+  }
+  .case-label input{margin:0;}
+  .search-status{
+    font-size:12px;
+    color:var(--text-muted);
+    margin-top:6px;
+    line-height:1.5;
+  }
+  .search-status:empty{display:none;}
+
+  /* ============ 选手列表 ============ */
+  .pitem{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    padding:7px 12px;
+    border:0;
+    border-bottom:1px solid #f5f5f5;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+    font-family:Consolas,Menlo,Monaco,monospace;
+    font-size:12.5px;
+    color:var(--text-soft);
+    transition:background .1s,color .1s;
+  }
+  .pitem[hidden]{display:none;}
+  .pitem:hover{background:#f5f7fa;color:var(--text);}
+  .pitem.has{color:var(--text);}
+  .pitem.active{background:#e7f1fb;color:var(--primary);font-weight:600;}
+  .pitem.active .badge{background:var(--primary);}
+  .pitem .badge{
+    min-width:18px;
+    height:18px;
+    padding:0 6px;
+    border-radius:9px;
+    background:#bbb;
+    color:#fff;
+    font-size:11px;
+    line-height:18px;
+    text-align:center;
+    font-family:-apple-system,sans-serif;
+    font-weight:normal;
+  }
+  .pitem .badge:empty{display:none;}
+
+  /* ============ 进度条 ============ */
+  .progress{
+    height:4px;
+    background:#eee;
+    border-radius:2px;
+    overflow:hidden;
+    margin-bottom:6px;
+  }
+  .progress-bar{
+    height:100%;
+    background:var(--primary);
+    width:0%;
+    transition:width .3s ease;
+  }
+
+  /* ============ 搜索结果 ============ */
+  .result-item{
+    padding:6px 10px;
+    border-bottom:1px solid #f0f0f0;
+    cursor:pointer;
+    font-size:12px;
+    transition:background .1s;
+  }
+  .result-item:hover{background:#f5f7fa;}
+  .result-head{
+    display:flex;
+    gap:6px;
+    align-items:center;
+    font-size:11px;
+    color:var(--text-muted);
+  }
+  .result-head .rid{font-family:Consolas,Menlo,monospace;color:var(--text);font-weight:600;}
+  .result-head .rprob{color:var(--primary);}
+  .result-head .rline{margin-left:auto;}
+  .result-line{
+    font-family:Consolas,Menlo,monospace;
+    color:#555;
+    margin-top:3px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .result-line mark{background:#ffe58f;color:inherit;padding:0 1px;border-radius:2px;}
+  .empty-small{padding:16px;text-align:center;color:var(--text-muted);font-size:12px;}
+
+  /* ============ 标签页 ============ */
+  .tabs{
+    display:flex;
+    padding:0 8px;
+    border-bottom:1px solid var(--border-light);
+    flex:0 0 auto;
+    overflow-x:auto;
+    background:#fafbfc;
+  }
+  .tabs::-webkit-scrollbar{height:0;}
+  .tab{
+    padding:10px 14px;
+    border:0;
+    background:transparent;
+    cursor:pointer;
+    font-size:13px;
+    font-family:inherit;
+    color:var(--text-muted);
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    white-space:nowrap;
+    transition:color .15s;
+  }
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600;}
+  .tab .dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#ddd;
+    flex:0 0 auto;
+  }
+  .tab .dot.ok{background:var(--success);}
+  .tab .dot.none{background:var(--warning);}
+
+  /* ============ 代码查看器 ============ */
+  .viewer{flex:1;min-height:0;overflow:hidden;position:relative;}
+
+  .code-wrap{
+    display:flex;
+    height:100%;
+    overflow:auto;
+    background:#fff;
+    font-family:Consolas,"Courier New",Menlo,Monaco,monospace;
+    font-size:13px;
+    line-height:20px;
+    position:relative;
+  }
+  .code-wrap::-webkit-scrollbar{width:11px;height:11px;}
+  .code-wrap::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:6px;border:2px solid #fff;}
+  .code-wrap::-webkit-scrollbar-thumb:hover{background:#a8a8a8;}
+  
+  .gutter{
+    position:sticky;
+    left:0;
+    flex:0 0 auto;
+    padding:10px 12px 24px;
+    background:#f6f8fa;
+    color:#afb8c1;
+    text-align:right;
+    white-space:pre;
+    user-select:none;
+    border-right:1px solid #e1e4e8;
+    z-index:2;
+    font-size:13px;
+    line-height:20px;
+  }
+  
+  pre.code{
+    flex:0 0 auto;
+    margin:0;
+    padding:10px 20px 24px 16px;
+    white-space:pre;
+    tab-size:4;
+    color:#24292e;
+    font-size:13px;
+    line-height:20px;
+    position:relative; /* 用于内部的绝对定位 */
+    z-index:1;
+  }
+  pre.code .k{color:#d73a49;}
+  pre.code .t{color:#005cc5;}
+  pre.code .s{color:#032f62;}
+  pre.code .c{color:#6a737d;font-style:italic;}
+  pre.code .n{color:#005cc5;}
+  pre.code .p{color:#22863a;}
+  pre.code .f{color:#6f42c1;}
+
+  /* 修正后的高亮条，放在 pre 内部 */
+  .line-highlight{
+    position:absolute;
+    left:0;
+    right:0;
+    height:20px;
+    background:rgba(255,193,7,0.28);
+    pointer-events:none;
+    z-index:-1; /* 在文字下方 */
+    border-radius:2px;
+  }
+
+  /* ============ 空状态 ============ */
+  .empty{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    height:100%;
+    padding:24px;
+    color:var(--text-muted);
+    text-align:center;
+    line-height:1.9;
+    font-size:13px;
+  }
+  .empty-title{
+    font-size:16px;
+    color:var(--text);
+    font-weight:600;
+    margin-bottom:14px;
+  }
+  .empty b{color:var(--text);}
+  .empty code{
+    background:#f0f2f5;
+    padding:1px 6px;
+    border-radius:3px;
+    font-family:Consolas,Menlo,monospace;
+    font-size:12.5px;
+    color:#d73a49;
+  }
+  .empty .btn{margin-top:14px;}
+  .empty .step{
+    display:inline-block;
+    width:22px;height:22px;
+    line-height:22px;
+    border-radius:50%;
+    background:var(--primary);
+    color:#fff;
+    font-size:12px;
+    font-weight:600;
+    margin-right:6px;
+    text-align:center;
+  }
+
+  .pid{
+    font-family:Consolas,Menlo,Monaco,monospace;
+    font-weight:600;
+    font-size:15px;
+    color:var(--text);
+  }
+  .pmeta{font-size:12px;color:var(--text-muted);}
+  .spacer{flex:1;}
+
+  /* ============ Toast ============ */
+  #toast{
+    position:fixed;
+    left:50%;
+    bottom:32px;
+    transform:translate(-50%,12px);
+    background:#2c3e50;
+    color:#fff;
+    padding:9px 18px;
+    border-radius:4px;
+    font-size:13px;
+    opacity:0;
+    transition:opacity .2s,transform .2s;
+    pointer-events:none;
+    z-index:99;
+    box-shadow:0 4px 16px rgba(0,0,0,0.25);
+  }
+  #toast.show{opacity:1;transform:translate(-50%,0);}
+
+  /* ============ 响应式 ============ */
+  @media (max-width:768px){
+    .sidebar{width:220px;flex:0 0 220px;}
+    .brand .brand-sub{display:none;}
+    .nav-info{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="brand">
+    CSP-S 2026 江苏省 · 选手代码
+    <span class="brand-sub">Code Viewer</span>
+  </div>
+  <div class="nav-info" id="navInfo"></div>
+  <button class="btn btn-nav btn-sm" id="btnReload" title="重新探测 code 目录">刷新索引</button>
+  <button class="btn btn-nav btn-sm" id="btnPick" title="从本地文件夹加载">打开文件夹</button>
+  <button class="btn btn-nav btn-sm" id="btnClose" title="关闭当前数据" disabled>关闭文件夹</button>
+</nav>
+
+<div class="layout">
+  <aside class="panel sidebar">
+    <div class="side-tabs">
+      <button class="side-tab active" data-tab="players">选手</button>
+      <button class="side-tab" data-tab="search">代码搜索</button>
+    </div>
+
+    <div class="panel-body" id="panePlayers">
+      <div class="search-box">
+        <input class="form-input" id="search" placeholder="搜索选手 ID…" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="playerList"></div>
+    </div>
+
+    <div class="panel-body" id="paneSearch" hidden>
+      <div class="search-box">
+        <input class="form-input" id="codeQuery" placeholder="搜索代码内容（子串）…" autocomplete="off" spellcheck="false">
+        <div class="search-actions">
+          <label class="case-label"><input type="checkbox" id="caseSensitive"> 区分大小写</label>
+          <button class="btn btn-sm btn-primary" id="btnRunSearch">搜索</button>
+          <button class="btn btn-sm" id="btnCancelSearch" hidden>取消</button>
+        </div>
+        <div class="search-status" id="searchStatus"></div>
+      </div>
+      <div id="searchResults"></div>
+    </div>
+
+    <div class="panel-foot">
+      <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+      <div id="progressText">初始化中…</div>
+    </div>
+  </aside>
+
+  <main class="panel main">
+    <div class="panel-head">
+      <span class="pid" id="pid">—</span>
+      <span class="pmeta" id="pmeta"></span>
+      <span class="spacer"></span>
+      <button class="btn btn-sm" id="btnCopy" disabled>复制代码</button>
+      <button class="btn btn-sm" id="btnDownload" disabled>下载 .cpp</button>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+    <div class="viewer" id="viewer">
+      <div class="empty">
+        <div class="empty-title">正在初始化…</div>
+        <div>页面将自动探测同目录下的 <code>code/</code> 文件夹。</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+   *  常量
+   * ========================================================= */
+  const PROBLEMS = [
+    { key:'crystal', label:'T1 能量水晶', file:'crystal.cpp' },
+    { key:'subway',  label:'T2 地铁',     file:'subway.cpp'  },
+    { key:'migrate', label:'T3 迁徙',     file:'migrate.cpp' },
+    { key:'hub',     label:'T4 研发基地', file:'hub.cpp'     }
+  ];
+  const PROB_BY_KEY = Object.fromEntries(PROBLEMS.map(p => [p.key, p]));
+  const PROB_KEYS = PROBLEMS.map(p => p.key);
+  const PLAYER_COUNT = 1953;
+
+  const LINE_HEIGHT = 20;
+  const CODE_PADDING_TOP = 10;
+
+  const idOf = n => 'JS-S' + String(n).padStart(5, '0');
+
+  /* =========================================================
+   *  DOM
+   * ========================================================= */
+  const $ = id => document.getElementById(id);
+  const listEl = $('playerList');
+  const searchEl = $('search');
+  const viewerEl = $('viewer');
+  const tabsEl = $('tabs');
+  const pidEl = $('pid');
+  const pmetaEl = $('pmeta');
+  const progressBar = $('progressBar');
+  const progressText = $('progressText');
+  const navInfo = $('navInfo');
+  const btnCopy = $('btnCopy');
+  const btnDownload = $('btnDownload');
+  const btnClose = $('btnClose');
+  const dirInput = $('dirInput');
+  const codeQueryEl = $('codeQuery');
+  const caseSensitiveEl = $('caseSensitive');
+  const btnRunSearch = $('btnRunSearch');
+  const btnCancelSearch = $('btnCancelSearch');
+  const searchStatusEl = $('searchStatus');
+  const searchResultsEl = $('searchResults');
+  const panePlayers = $('panePlayers');
+  const paneSearch = $('paneSearch');
+
+  /* =========================================================
+   *  全局状态
+   * ========================================================= */
+  const state = {
+    mode: 'none',
+    players: [],
+    problemsOf: new Map(),
+    cache: new Map(),
+    files: null,
+    currentId: null,
+    currentProb: 'crystal',
+    currentText: null,
+    renderToken: 0,
+    pendingScroll: null,
+    probing: { total: 0, done: 0, aborted: false },
+    searching: false,
+    searchAborted: false
+  };
+
+  /* =========================================================
+   *  工具
+   * ========================================================= */
+  const esc = s => s.replace(/[&<>]/g, c => c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c);
+  const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  let toastTimer;
+  function toast(msg){
+    let el = document.getElementById('toast');
+    if (!el){ el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  }
+
+  function parseDirListing(html){
+    const result = [];
+    const re = /<a\s+[^>]*href\s*=\s*["']([^"']+)["'][^>]*>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null){
+      let href = m[1].split('?')[0].split('#')[0];
+      if (!href || href === '../' || href.startsWith('../')) continue;
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
+      if (href.startsWith('/')) continue;
+      result.push(href);
+    }
+    return result;
+  }
+
+  class RequestQueue {
+    constructor(limit){ this.limit = limit; this.running = 0; this.queue = []; }
+    add(task){
+      return new Promise((resolve, reject) => {
+        this.queue.push({ task, resolve, reject });
+        this._next();
+      });
+    }
+    _next(){
+      while (this.running < this.limit && this.queue.length > 0){
+        const { task, resolve, reject } = this.queue.shift();
+        this.running++;
+        Promise.resolve().then(task).then(resolve, reject).finally(() => {
+          this.running--;
+          this._next();
+        });
+      }
+    }
+  }
+
+  /* =========================================================
+   *  C++ 语法高亮
+   * ========================================================= */
+  const CPP_KEYWORDS = new Set([
+    'alignas','alignof','and','and_eq','asm','auto','bitand','bitor','bool','break','case','catch',
+    'char','char8_t','char16_t','char32_t','class','compl','concept','const','consteval','constexpr',
+    'constinit','const_cast','continue','co_await','co_return','co_yield','decltype','default','delete',
+    'do','dynamic_cast','else','enum','explicit','export','extern','false','for','friend','goto','if',
+    'inline','mutable','namespace','new','noexcept','not','not_eq','nullptr','operator','or','or_eq',
+    'private','protected','public','register','reinterpret_cast','requires','return','sizeof','static',
+    'static_assert','static_cast','struct','switch','template','this','thread_local','throw','true',
+    'try','typedef','typeid','typename','union','using','virtual','volatile','wchar_t','while','xor','xor_eq'
+  ]);
+  const CPP_TYPES = new Set([
+    'int','long','short','unsigned','signed','float','double','void','size_t','ssize_t',
+    'string','vector','pair','map','set','multiset','multimap','unordered_map','unordered_set',
+    'deque','queue','stack','priority_queue','array','bitset','tuple','list','__int128',
+    'int64_t','uint64_t','int32_t','uint32_t','int8_t','uint8_t','ptrdiff_t'
+  ]);
+
+  const HL_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' +
+    '|(^[ \\t]*#[^\\n]*)' +
+    '|(\\b(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)[fFuUlL]*\\b)' +
+    '|([A-Za-z_]\\w*)',
+    'gm'
+  );
+
+  function highlight(src){
+    let out = '', last = 0, m;
+    HL_RE.lastIndex = 0;
+    while ((m = HL_RE.exec(src)) !== null){
+      if (m.index > last) out += esc(src.slice(last, m.index));
+
+      if (m[1] !== undefined)      out += '<span class="c">' + esc(m[1]) + '</span>';
+      else if (m[2] !== undefined) out += '<span class="s">' + esc(m[2]) + '</span>';
+      else if (m[3] !== undefined) out += '<span class="p">' + esc(m[3]) + '</span>';
+      else if (m[4] !== undefined) out += '<span class="n">' + esc(m[4]) + '</span>';
+      else {
+        const w = m[5];
+        if (CPP_KEYWORDS.has(w)) out += '<span class="k">' + w + '</span>';
+        else if (CPP_TYPES.has(w)) out += '<span class="t">' + w + '</span>';
+        else {
+          let j = HL_RE.lastIndex;
+          while (j < src.length && (src[j] === ' ' || src[j] === '\t')) j++;
+          out += (src[j] === '(') ? '<span class="f">' + w + '</span>' : esc(w);
+        }
+      }
+      last = HL_RE.lastIndex;
+    }
+    out += esc(src.slice(last));
+    return out;
+  }
+
+  /* =========================================================
+   *  选手列表
+   * ========================================================= */
+  function renderPlayerList(){
+    const frag = document.createDocumentFragment();
+    for (const id of state.players){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pitem';
+      b.dataset.id = id;
+      b.innerHTML = '<span>' + id + '</span><span class="badge"></span>';
+      frag.appendChild(b);
+    }
+    listEl.innerHTML = '';
+    listEl.appendChild(frag);
+    applySearchFilter();
+    updateActiveItem();
+  }
+
+  function applySearchFilter(){
+    const q = searchEl.value.trim().toUpperCase();
+    for (const el of listEl.children){
+      el.hidden = q !== '' && !el.dataset.id.includes(q);
+    }
+  }
+
+  function updateActiveItem(){
+    const prev = listEl.querySelector('.pitem.active');
+    if (prev) prev.classList.remove('active');
+    if (!state.currentId) return;
+    const el = listEl.querySelector('.pitem[data-id="' + state.currentId + '"]');
+    if (el){
+      el.classList.add('active');
+      if (el.offsetTop < listEl.parentElement.scrollTop ||
+          el.offsetTop + el.offsetHeight > listEl.parentElement.scrollTop + listEl.parentElement.clientHeight){
+        el.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
+  function updateBadge(id){
+    const el = listEl.querySelector('.pitem[data-id="' + id + '"]');
+    if (!el) return;
+    const set = state.problemsOf.get(id);
+    const n = set ? set.size : 0;
+    const badge = el.lastElementChild;
+    badge.textContent = n ? String(n) : '';
+    el.classList.toggle('has', n > 0);
+  }
+
+  function refreshAllBadges(){
+    for (const el of listEl.children){
+      const id = el.dataset.id;
+      const set = state.problemsOf.get(id);
+      const n = set ? set.size : 0;
+      const badge = el.lastElementChild;
+      badge.textContent = n ? String(n) : '';
+      el.classList.toggle('has', n > 0);
+    }
+  }
+
+  searchEl.addEventListener('input', applySearchFilter);
+
+  listEl.addEventListener('click', e => {
+    const item = e.target.closest('.pitem');
+    if (!item) return;
+    state.pendingScroll = null;
+    selectPlayer(item.dataset.id);
+  });
+
+  /* =========================================================
+   *  侧边栏 tab 切换
+   * ========================================================= */
+  document.querySelectorAll('.side-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchSideTab(btn.dataset.tab));
+  });
+
+  function switchSideTab(name){
+    document.querySelectorAll('.side-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    panePlayers.hidden = name !== 'players';
+    paneSearch.hidden = name !== 'search';
+  }
+
+  /* =========================================================
+   *  初始化
+   * ========================================================= */
+  async function init(){
+    const isHttp = location.protocol === 'http:' || location.protocol === 'https:';
+    if (isHttp){
+      const ok = await loadHttpIndex();
+      if (ok) return;
+    }
+    showPickPrompt(isHttp);
+  }
+
+  function showPickPrompt(isHttp){
+    navInfo.textContent = isHttp ? '未检测到 code 目录' : '本地文件模式';
+    progressText.textContent = '等待选择文件夹';
+    progressBar.style.width = '0%';
+    viewerEl.innerHTML = `
+      <div class="empty">
+        <div class="empty-title">欢迎使用 CSP-S 2026 江苏省选手代码查看器</div>
+        <div style="margin-bottom:6px;">
+          <span class="step">1</span>点击顶部「<b>打开文件夹</b>」按钮，选择包含 <code>code/</code> 的目录
+        </div>
+        <div style="margin-bottom:6px;">
+          或把 <code>index.html</code> 放在 <code>code/</code> 同级的目录，用本地服务器打开：
+        </div>
+        <div style="margin-bottom:6px;">
+          <code>python -m http.server 8000</code> → 访问 <code>http://localhost:8000/</code>
+        </div>
+        <button class="btn btn-primary" id="btnPick2">打开文件夹</button>
+      </div>`;
+    const b = document.getElementById('btnPick2');
+    if (b) b.addEventListener('click', () => dirInput.click());
+  }
+
+  /* =========================================================
+   *  HTTP 模式
+   * ========================================================= */
+  async function loadHttpIndex(){
+    let playerIds = null;
+    try {
+      const res = await fetch('code/', { cache: 'no-store' });
+      if (res.ok){
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('html') || ct.includes('text/plain')){
+          const html = await res.text();
+          const entries = parseDirListing(html);
+          playerIds = entries
+            .map(e => e.replace(/\/$/, ''))
+            .filter(e => /^JS-S\d+$/i.test(e))
+            .map(e => e.toUpperCase())
+            .filter((v, i, a) => a.indexOf(v) === i)
+            .sort();
+          if (playerIds.length === 0) playerIds = null;
+        }
+      }
+    } catch (e){ /* 忽略 */ }
+
+    if (!playerIds){
+      try {
+        const res = await fetch('code/JS-S00001/', { method: 'HEAD', cache: 'no-store' });
+        if (!res.ok) return false;
+      } catch (e){ return false; }
+      playerIds = [];
+      for (let n = 1; n <= PLAYER_COUNT; n++) playerIds.push(idOf(n));
+    }
+
+    state.mode = 'http';
+    state.players = playerIds;
+    state.problemsOf.clear();
+    state.cache.clear();
+    state.files = null;
+
+    btnClose.disabled = false;
+    renderPlayerList();
+    navInfo.textContent = 'HTTP 模式';
+    startProbing();
+    return true;
+  }
+
+  async function startProbing(){
+    if (state.probing.aborted) return;
+    const players = state.players.slice();
+    state.probing = { total: players.length, done: 0, aborted: false };
+    updateProgress();
+
+    const queue = new RequestQueue(8);
+    let updateTimer = null;
+    const scheduleUpdate = () => {
+      if (updateTimer) return;
+      updateTimer = requestAnimationFrame(() => {
+        updateTimer = null;
+        updateProgress();
+        refreshAllBadges();
+      });
+    };
+
+    const tasks = players.map(id => queue.add(async () => {
+      if (state.probing.aborted) return;
+      try {
+        const problems = await probePlayerHttp(id);
+        if (problems) state.problemsOf.set(id, problems);
+      } catch (e){ /* 忽略 */ }
+      state.probing.done++;
+      if (state.probing.done === state.probing.total){
+        updateProgress();
+        refreshAllBadges();
+      } else if (state.probing.done % 15 === 0){
+        scheduleUpdate();
+      }
+    }));
+
+    await Promise.all(tasks);
+    if (state.probing.aborted) return;
+    updateProgress();
+    refreshAllBadges();
+
+    if (!state.currentId){
+      const first = state.players.find(id => (state.problemsOf.get(id) || new Set()).size > 0);
+      if (first) selectPlayer(first);
+      else if (state.players.length > 0) selectPlayer(state.players[0]);
+    }
+  }
+
+  async function probePlayerHttp(id){
+    try {
+      const res = await fetch('code/' + id + '/', { cache: 'no-store' });
+      if (res.ok){
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('html') || ct.includes('text/plain')){
+          const html = await res.text();
+          const entries = parseDirListing(html);
+          const dirs = entries
+            .map(e => e.replace(/\/$/, '').toLowerCase())
+            .filter(d => PROB_BY_KEY[d]);
+          return new Set(dirs);
+        }
+      }
+    } catch (e){ /* 忽略 */ }
+
+    const result = new Set();
+    await Promise.all(PROBLEMS.map(async p => {
+      try {
+        const res = await fetch('code/' + id + '/' + p.key + '/' + p.file,
+                                { method: 'HEAD', cache: 'no-store' });
+        if (res.ok) result.add(p.key);
+      } catch (e){ /* 忽略 */ }
+    }));
+    return result;
+  }
+
+  function updateProgress(){
+    const { total, done } = state.probing;
+    if (!total){ progressBar.style.width = '0%'; return; }
+    const pct = Math.min(100, Math.floor(done / total * 100));
+    progressBar.style.width = pct + '%';
+    if (done >= total){
+      let withCode = 0;
+      for (const set of state.problemsOf.values()) if (set.size > 0) withCode++;
+      progressText.textContent = `索引完成 · ${withCode} 名选手有代码`;
+    } else {
+      progressText.textContent = `探测中 ${done} / ${total}`;
+    }
+  }
+
+  /* =========================================================
+   *  本地文件夹
+   * ========================================================= */
+  $('btnPick').addEventListener('click', () => dirInput.click());
+
+  dirInput.addEventListener('change', () => {
+    if (dirInput.files && dirInput.files.length){
+      loadFromFiles(dirInput.files);
+    }
+    dirInput.value = '';
+  });
+
+  function loadFromFiles(files){
+    const index = new Map();
+    let matched = 0;
+
+    for (const file of files){
+      const rel = file.webkitRelativePath || file.name;
+      const parts = rel.split('/');
+
+      let pi = -1;
+      for (let i = 0; i < parts.length; i++){
+        if (/^JS-S\d+$/i.test(parts[i])){ pi = i; break; }
+      }
+      if (pi < 0 || parts.length - pi < 2) continue;
+
+      const id = parts[pi].toUpperCase();
+      const folder = (parts[pi + 1] || '').toLowerCase();
+      const fname = parts[parts.length - 1];
+      if (!/\.(cpp|cc|cxx|c|C)$/.test(fname)) continue;
+
+      let probKey = PROB_BY_KEY[folder] ? folder : null;
+      if (!probKey){
+        const base = fname.replace(/\.[^.]+$/, '').toLowerCase();
+        if (PROB_BY_KEY[base]) probKey = base;
+      }
+      if (!probKey) continue;
+
+      let m = index.get(id);
+      if (!m){ m = new Map(); index.set(id, m); }
+      if (!m.has(probKey)){ m.set(probKey, file); matched++; }
+    }
+
+    if (matched === 0){
+      alert('未在所选文件夹中找到符合结构的代码。\n\n请选择包含 JS-S00001 … JS-S01953 等文件夹的 code 目录。');
+      return;
+    }
+
+    state.probing.aborted = true;
+    state.mode = 'local';
+    state.files = index;
+    state.players = [...index.keys()].sort();
+    state.problemsOf.clear();
+    state.cache.clear();
+    state.currentId = null;
+    state.currentText = null;
+    state.pendingScroll = null;
+
+    for (const [id, m] of index){
+      state.problemsOf.set(id, new Set(m.keys()));
+    }
+
+    btnClose.disabled = false;
+    renderPlayerList();
+    navInfo.textContent = '本地模式';
+    progressBar.style.width = '100%';
+    progressText.textContent = `本地加载 · ${state.players.length} 名选手 · ${matched} 份代码`;
+
+    pidEl.textContent = '—';
+    pmetaEl.textContent = '';
+    tabsEl.innerHTML = '';
+
+    if (state.players.length > 0) selectPlayer(state.players[0]);
+  }
+
+  /* =========================================================
+   *  关闭文件夹
+   * ========================================================= */
+  btnClose.addEventListener('click', () => {
+    if (state.mode === 'none') return;
+
+    state.probing.aborted = true;
+    state.searchAborted = true;
+    state.mode = 'none';
+    state.players = [];
+    state.problemsOf.clear();
+    state.cache.clear();
+    state.files = null;
+    state.currentId = null;
+    state.currentText = null;
+    state.pendingScroll = null;
+
+    listEl.innerHTML = '';
+    tabsEl.innerHTML = '';
+    pidEl.textContent = '—';
+    pmetaEl.textContent = '';
+    navInfo.textContent = '';
+    progressBar.style.width = '0%';
+    progressText.textContent = '未加载';
+    btnClose.disabled = true;
+    btnCopy.disabled = true;
+    btnDownload.disabled = true;
+
+    searchResultsEl.innerHTML = '';
+    searchStatusEl.textContent = '';
+    btnRunSearch.disabled = false;
+    btnCancelSearch.hidden = true;
+
+    switchSideTab('players');
+    showPickPrompt(location.protocol === 'http:' || location.protocol === 'https:');
+    toast('已关闭文件夹');
+  });
+
+  /* =========================================================
+   *  刷新索引
+   * ========================================================= */
+  $('btnReload').addEventListener('click', async () => {
+    if (state.mode === 'local'){
+      toast('本地模式请重新选择文件夹');
+      return;
+    }
+    if (state.mode === 'http'){
+      state.probing.aborted = true;
+      state.cache.clear();
+      state.problemsOf.clear();
+      state.currentText = null;
+      progressBar.style.width = '0%';
+      progressText.textContent = '重新探测中…';
+      const ok = await loadHttpIndex();
+      if (!ok) showPickPrompt(true);
+      return;
+    }
+    init();
+  });
+
+  /* =========================================================
+   *  选择选手
+   * ========================================================= */
+  function selectPlayer(id){
+    if (!id) return;
+    state.currentId = id;
+    updateActiveItem();
+    renderPlayerHeader();
+    renderTabs();
+
+    if (state.mode === 'http' && !state.problemsOf.has(id)){
+      probePlayerHttp(id).then(problems => {
+        if (problems){
+          state.problemsOf.set(id, problems);
+          updateBadge(id);
+          if (state.currentId === id) renderTabs();
+        }
+      }).catch(() => {});
+    }
+
+    renderCode();
+  }
+
+  function renderPlayerHeader(){
+    const id = state.currentId;
+    pidEl.textContent = id || '—';
+    if (!id){ pmetaEl.textContent = ''; return; }
+
+    const set = state.problemsOf.get(id);
+    const n = set ? set.size : 0;
+
+    if (state.mode === 'http' && !state.problemsOf.has(id)){
+      pmetaEl.textContent = '探测中…';
+    } else if (n === 0){
+      pmetaEl.textContent = '未找到该选手的代码';
+    } else {
+      pmetaEl.textContent = `共 ${n} 份代码`;
+    }
+  }
+
+  /* =========================================================
+   *  标签页
+   * ========================================================= */
+  function getStatus(probKey){
+    const id = state.currentId;
+    if (!id) return 'unknown';
+    const set = state.problemsOf.get(id);
+    if (!set) return 'unknown';
+    return set.has(probKey) ? 'ok' : 'none';
+  }
+
+  function renderTabs(){
+    if (!state.currentId){ tabsEl.innerHTML = ''; return; }
+    tabsEl.innerHTML = PROBLEMS.map(p => {
+      const st = getStatus(p.key);
+      const active = p.key === state.currentProb ? ' active' : '';
+      const dotCls = st === 'ok' ? 'ok' : (st === 'none' ? 'none' : '');
+      return `<button type="button" class="tab${active}" data-prob="${p.key}">` +
+             `<span class="dot ${dotCls}"></span>${p.label}</button>`;
+    }).join('');
+  }
+
+  tabsEl.addEventListener('click', e => {
+    const t = e.target.closest('.tab');
+    if (!t) return;
+    state.pendingScroll = null;
+    state.currentProb = t.dataset.prob;
+    renderTabs();
+    renderCode();
+  });
+
+  /* =========================================================
+   *  代码读取与渲染
+   * ========================================================= */
+  async function getCode(id, probKey){
+    const ck = id + '/' + probKey;
+    if (state.cache.has(ck)) return state.cache.get(ck);
+
+    let p;
+    if (state.mode === 'local'){
+      const m = state.files.get(id);
+      const file = m && m.get(probKey);
+      if (!file){ p = Promise.resolve(null); }
+      else { p = file.text().catch(() => null); }
+    } else if (state.mode === 'http'){
+      const prob = PROB_BY_KEY[probKey];
+      p = fetch('code/' + id + '/' + probKey + '/' + prob.file, { cache: 'no-store' })
+        .then(r => {
+          if (!r.ok) return null;
+          const ct = r.headers.get('content-type') || '';
+          if (ct.includes('text/html')) return null;
+          return r.text();
+        })
+        .catch(() => null);
+    } else {
+      p = Promise.resolve(null);
+    }
+    state.cache.set(ck, p);
+    return p;
+  }
+
+  async function renderCode(){
+    const token = ++state.renderToken;
+    state.currentText = null;
+    btnCopy.disabled = true;
+    btnDownload.disabled = true;
+
+    const id = state.currentId;
+    if (!id){
+      viewerEl.innerHTML = '<div class="empty"><div class="empty-title">请选择一名选手</div></div>';
+      return;
+    }
+    if (state.mode === 'none'){
+      viewerEl.innerHTML = '<div class="empty"><div class="empty-title">请先加载代码数据</div></div>';
+      return;
+    }
+
+    const probKey = state.currentProb;
+    const cached = state.cache.get(id + '/' + probKey);
+    if (cached === undefined || (cached && typeof cached.then === 'function')){
+      viewerEl.innerHTML = '<div class="empty"><div>读取中…</div></div>';
+    }
+
+    let text;
+    try {
+      text = await getCode(id, probKey);
+    } catch (e){
+      if (token !== state.renderToken) return;
+      viewerEl.innerHTML = '<div class="empty"><div>读取失败</div></div>';
+      return;
+    }
+    if (token !== state.renderToken) return;
+
+    renderTabs();
+
+    if (text == null){
+      viewerEl.innerHTML = `<div class="empty">
+        <div class="empty-title">未找到代码</div>
+        <div><b>${id}</b> 的「${PROB_BY_KEY[probKey].label}」代码未提交或不存在</div>
+      </div>`;
+      return;
+    }
+
+    state.currentText = text;
+    btnCopy.disabled = false;
+    btnDownload.disabled = false;
+    renderCodeView(text);
+  }
+
+  function renderCodeView(text){
+    const norm = text.replace(/\r\n?/g, '\n');
+    const lines = norm.split('\n');
+    const nums = new Array(lines.length);
+    for (let i = 1; i <= lines.length; i++) nums[i - 1] = i;
+
+    viewerEl.innerHTML = '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'code-wrap';
+
+    const gutter = document.createElement('div');
+    gutter.className = 'gutter';
+    gutter.textContent = nums.join('\n');
+
+    const pre = document.createElement('pre');
+    pre.className = 'code';
+    pre.innerHTML = highlight(norm);
+
+    wrap.append(gutter, pre);
+    viewerEl.appendChild(wrap);
+
+    // 处理搜索结果跳转
+    const ps = state.pendingScroll;
+    if (ps && ps.id === state.currentId && ps.probKey === state.currentProb){
+      state.pendingScroll = null;
+      requestAnimationFrame(() => scrollToLine(ps.line));
+    }
+  }
+
+  /* =========================================================
+   *  滚动到行 + 高亮 (修复版)
+   * ========================================================= */
+  function scrollToLine(lineNo){
+    const wrap = viewerEl.querySelector('.code-wrap');
+    if (!wrap) return;
+    const pre = wrap.querySelector('pre.code');
+    if (!pre) return;
+
+    // 目标相对 pre 顶部 padding 的偏移
+    const targetTop = CODE_PADDING_TOP + (lineNo - 1) * LINE_HEIGHT;
+
+    // 移除旧的高亮
+    const old = pre.querySelector('.line-highlight');
+    if (old) old.remove();
+
+    // 让容器滚动到目标可视区
+    const scrollTop = targetTop - Math.floor(wrap.clientHeight / 3);
+    wrap.scrollTop = Math.max(0, scrollTop);
+
+    // 创建高亮条并追加到 pre 内部，这样它会随着代码一起自然滚动，不会错位
+    const hl = document.createElement('div');
+    hl.className = 'line-highlight';
+    hl.style.top = targetTop + 'px';
+    pre.appendChild(hl);
+
+    // 2.5 秒后淡出
+    setTimeout(() => {
+      hl.style.transition = 'opacity .4s';
+      hl.style.opacity = '0';
+      setTimeout(() => {
+        hl.remove();
+      }, 420);
+    }, 2500);
+  }
+
+  /* =========================================================
+   *  全文代码搜索
+   * ========================================================= */
+  function findMatches(text, query, caseSensitive, maxPerFile = 50){
+    const lines = text.split('\n');
+    const q = caseSensitive ? query : query.toLowerCase();
+    const matches = [];
+    for (let i = 0; i < lines.length && matches.length < maxPerFile; i++){
+      const line = lines[i];
+      const hay = caseSensitive ? line : line.toLowerCase();
+      const idx = hay.indexOf(q);
+      if (idx !== -1){
+        matches.push({ line: i + 1, matchIdx: idx, text: line });
+      }
+    }
+    return matches;
+  }
+
+  function buildSnippetHtml(line, query, caseSensitive){
+    const q = caseSensitive ? query : query.toLowerCase();
+    const hay = caseSensitive ? line : line.toLowerCase();
+    const idx = hay.indexOf(q);
+    if (idx < 0) return esc(line);
+
+    const CTX = 36;
+    const start = Math.max(0, idx - CTX);
+    const end = Math.min(line.length, idx + query.length + CTX);
+
+    const before = line.slice(start, idx);
+    const matched = line.slice(idx, idx + query.length);
+    const after = line.slice(idx + query.length, end);
+
+    return (start > 0 ? '…' : '') +
+           esc(before) +
+           '<mark>' + esc(matched) + '</mark>' +
+           esc(after) +
+           (end < line.length ? '…' : '');
+  }
+
+  btnRunSearch.addEventListener('click', runCodeSearch);
+  codeQueryEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') runCodeSearch();
+  });
+  btnCancelSearch.addEventListener('click', () => {
+    state.searchAborted = true;
+  });
+
+  async function runCodeSearch(){
+    if (state.searching) return;
+
+    const query = codeQueryEl.value;
+    if (!query){
+      toast('请输入要搜索的内容');
+      codeQueryEl.focus();
+      return;
+    }
+    if (state.mode === 'none'){
+      toast('请先加载代码数据');
+      return;
+    }
+
+    const caseSensitive = caseSensitiveEl.checked;
+
+    const targets = [];
+    for (const id of state.players){
+      const set = state.problemsOf.get(id);
+      if (!set) continue;
+      for (const pk of PROB_KEYS){
+        if (set.has(pk)) targets.push({ id, probKey: pk });
+      }
+    }
+
+    if (targets.length === 0){
+      searchResultsEl.innerHTML = '<div class="empty-small">当前没有可搜索的代码</div>';
+      searchStatusEl.textContent = '';
+      return;
+    }
+
+    if (state.mode === 'http'){
+      let uncached = 0;
+      for (const t of targets){
+        if (!state.cache.has(t.id + '/' + t.probKey)) uncached++;
+      }
+      if (uncached > 100){
+        const ok = confirm(
+          'HTTP 模式下全文搜索需要下载 ' + uncached + ' 个代码文件，可能需要较长时间。\n\n是否继续？'
+        );
+        if (!ok) return;
+      }
+    }
+
+    state.searching = true;
+    state.searchAborted = false;
+    btnRunSearch.disabled = true;
+    btnCancelSearch.hidden = false;
+    searchResultsEl.innerHTML = '';
+    searchStatusEl.textContent = '准备中…';
+
+    const results = [];
+    let done = 0;
+    const total = targets.length;
+    let lastRender = 0;
+
+    const CONCURRENCY = 8;
+    let cursor = 0;
+
+    const worker = async () => {
+      while (cursor < targets.length && !state.searchAborted){
+        const t = targets[cursor++];
+        let text = null;
+        try {
+          text = await getCode(t.id, t.probKey);
+        } catch (e){ /* 忽略 */ }
+        if (text && !state.searchAborted){
+          const matches = findMatches(text, query, caseSensitive);
+          if (matches.length){
+            results.push({ id: t.id, probKey: t.probKey, matches });
+          }
+        }
+        done++;
+        if (done === total || done - lastRender >= 20){
+          lastRender = done;
+          updateSearchProgress(done, total, results);
+        }
+      }
+    };
+
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+    state.searching = false;
+    btnRunSearch.disabled = false;
+    btnCancelSearch.hidden = true;
+
+    if (state.searchAborted){
+      searchStatusEl.textContent = `已取消（已处理 ${done}/${total}）`;
+      btnRunSearch.disabled = false;
+      return;
+    }
+
+    renderSearchResults(results, query, caseSensitive);
+  }
+
+  function updateSearchProgress(done, total, results){
+    const pct = Math.min(100, Math.floor(done / total * 100));
+    progressBar.style.width = pct + '%';
+    let matchCount = 0;
+    for (const r of results) matchCount += r.matches.length;
+    searchStatusEl.textContent = `搜索中 ${done}/${total} · 已命中 ${matchCount} 处`;
+    progressText.textContent = `代码搜索 ${done}/${total}`;
+  }
+
+  function renderSearchResults(results, query, caseSensitive){
+    results.sort((a, b) => {
+      if (a.id !== b.id) return a.id < b.id ? -1 : 1;
+      const ia = PROB_KEYS.indexOf(a.probKey), ib = PROB_KEYS.indexOf(b.probKey);
+      return ia - ib;
+    });
+
+    const MAX = 1000;
+    let count = 0;
+    let fileCount = 0;
+    const frag = document.createDocumentFragment();
+
+    for (const r of results){
+      if (count >= MAX) break;
+      fileCount++;
+      for (const m of r.matches){
+        if (count >= MAX) break;
+        count++;
+        const item = document.createElement('div');
+        item.className = 'result-item';
+        item.dataset.id = r.id;
+        item.dataset.prob = r.probKey;
+        item.dataset.line = String(m.line);
+        item.innerHTML =
+          '<div class="result-head">' +
+            '<span class="rid">' + r.id + '</span>' +
+            '<span class="rprob">' + PROB_BY_KEY[r.probKey].label + '</span>' +
+            '<span class="rline">第 ' + m.line + ' 行</span>' +
+          '</div>' +
+          '<div class="result-line">' + buildSnippetHtml(m.text, query, caseSensitive) + '</div>';
+        frag.appendChild(item);
+      }
+    }
+
+    searchResultsEl.innerHTML = '';
+    if (count === 0){
+      searchResultsEl.innerHTML = '<div class="empty-small">未找到匹配内容</div>';
+      searchStatusEl.textContent = '0 条结果';
+      progressBar.style.width = '100%';
+      progressText.textContent = '搜索完成 · 0 条结果';
+      return;
+    }
+
+    searchResultsEl.appendChild(frag);
+
+    if (count >= MAX){
+      const more = document.createElement('div');
+      more.className = 'empty-small';
+      more.textContent = '结果过多，仅显示前 ' + MAX + ' 条';
+      searchResultsEl.appendChild(more);
+    }
+
+    searchStatusEl.textContent = `共 ${count} 处匹配 · ${fileCount} 个文件`;
+    progressBar.style.width = '100%';
+    progressText.textContent = `搜索完成 · ${count} 处匹配`;
+  }
+
+  searchResultsEl.addEventListener('click', e => {
+    const item = e.target.closest('.result-item');
+    if (!item) return;
+    const id = item.dataset.id;
+    const probKey = item.dataset.prob;
+    const line = parseInt(item.dataset.line, 10);
+    jumpToMatch(id, probKey, line);
+  });
+
+  function jumpToMatch(id, probKey, line){
+    state.pendingScroll = { id, probKey, line };
+    state.currentProb = probKey;
+    switchSideTab('players');
+    selectPlayer(id);
+    updateActiveItem();
+  }
+
+  /* =========================================================
+   *  复制 / 下载
+   * ========================================================= */
+  btnCopy.addEventListener('click', async () => {
+    if (!state.currentText) return;
+    try {
+      await navigator.clipboard.writeText(state.currentText);
+      toast('已复制到剪贴板');
+    } catch (e){
+      const ta = document.createElement('textarea');
+      ta.value = state.currentText;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast('已复制到剪贴板'); }
+      catch (e2){ toast('复制失败，请手动选择'); }
+      ta.remove();
+    }
+  });
+
+  btnDownload.addEventListener('click', () => {
+    if (!state.currentText) return;
+    const blob = new Blob([state.currentText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = state.currentId + '_' + state.currentProb + '.cpp';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  /* =========================================================
+   *  快捷键：Alt + ↑/↓ 切换选手，Alt + ←/→ 切换题目
+   * ========================================================= */
+  document.addEventListener('keydown', e => {
+    if (!e.altKey) return;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown'){
+      if (state.players.length === 0) return;
+      e.preventDefault();
+      state.pendingScroll = null;
+      const idx = state.players.indexOf(state.currentId);
+      let ni;
+      if (idx < 0) ni = 0;
+      else ni = idx + (e.key === 'ArrowUp' ? -1 : 1);
+      if (ni < 0) ni = 0;
+      if (ni >= state.players.length) ni = state.players.length - 1;
+      if (state.players[ni] !== state.currentId) selectPlayer(state.players[ni]);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+      e.preventDefault();
+      state.pendingScroll = null;
+      const i = PROB_KEYS.indexOf(state.currentProb);
+      const j = (i + (e.key === 'ArrowLeft' ? -1 : 1) + PROB_KEYS.length) % PROB_KEYS.length;
+      state.currentProb = PROB_KEYS[j];
+      renderTabs();
+      renderCode();
+    }
+  });
+
+  /* =========================================================
+   *  启动
+   * ========================================================= */
+  init();
+
+})();
+</script>
+</body>
+</html>
